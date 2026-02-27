@@ -25,4 +25,4 @@ jobs:
         run: isort . --check --diff
 
       - name: Ensure pyright is happy
-        uses: pyright d20 tests
+        uses: pyright d20
