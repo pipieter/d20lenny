@@ -1,5 +1,6 @@
 import abc
 import os
+from typing import Any, Generic, Optional, TypeVar
 
 from lark import Lark, Token, Transformer
 
@@ -7,59 +8,58 @@ from lark import Lark, Token, Transformer
 
 
 # noinspection PyMethodMayBeStatic
-# shush, you
-class RollTransformer(Transformer):
+class RollTransformer(Transformer[Any, Any]):
     _comma = object()
 
-    def expr(self, num):
+    def expr(self, num: Any):
         return Expression(*num)
 
-    def commented_expr(self, numcomment):
+    def commented_expr(self, numcomment: Any):
         return Expression(*numcomment)
 
-    def comparison(self, binop):
+    def comparison(self, binop: Any):
         return BinOp(*binop)
 
-    def a_num(self, binop):
+    def a_num(self, binop: Any):
         return BinOp(*binop)
 
-    def m_num(self, binop):
+    def m_num(self, binop: Any):
         return BinOp(*binop)
 
-    def u_num(self, unop):
+    def u_num(self, unop: Any):
         return UnOp(*unop)
 
-    def numexpr(self, num_anno):
+    def numexpr(self, num_anno: Any):
         return AnnotatedNumber(*num_anno)
 
-    def literal(self, num):
+    def literal(self, num: Any):
         return Literal(*num)
 
-    def set(self, opset):
+    def set(self, opset: Any):
         return OperatedSet(*opset)
 
-    def set_op(self, opsel):
+    def set_op(self, opsel: Any):
         return SetOperator.new(*opsel)
 
-    def setexpr(self, the_set):
+    def setexpr(self, the_set: Any):
         if len(the_set) == 1 and the_set[-1] is not self._comma:
             return Parenthetical(the_set[0])
         elif len(the_set) and the_set[-1] is self._comma:
             the_set = the_set[:-1]
         return NumberSet(the_set)
 
-    def dice(self, opdice):
+    def dice(self, opdice: Any):
         return OperatedDice(*opdice)
 
-    def dice_op(self, opsel):
+    def dice_op(self, opsel: Any):
         return SetOperator.new(*opsel)
 
-    def diceexpr(self, dice):
+    def diceexpr(self, dice: Any):
         if len(dice) == 1:
             return Dice(1, *dice)
         return Dice(*dice)
 
-    def selector(self, sel):
+    def selector(self, sel: Any):
         return SetSelector(*sel)
 
     def comma(self, _):
@@ -67,11 +67,15 @@ class RollTransformer(Transformer):
 
 
 # ===== helper mixin =====
-class ChildMixin:
+ChildType = TypeVar("ChildType", bound="ChildMixin")
+
+
+class ChildMixin(Generic[ChildType]):
     """A mixin that tree nodes must implement to support tree traversal utilities."""
 
     @property
-    def children(self):
+    @abc.abstractmethod
+    def children(self) -> list[ChildType]:
         """
         Returns a list of this node's roll children.
 
@@ -80,7 +84,7 @@ class ChildMixin:
         raise NotImplementedError
 
     @property
-    def left(self):
+    def left(self) -> ChildType | None:
         """
         Returns the node's leftmost child, or None if there are no children.
 
@@ -89,11 +93,11 @@ class ChildMixin:
         return self.children[0] if self.children else None
 
     @left.setter
-    def left(self, value):
+    def left(self, value: ChildType) -> None:
         self.set_child(0, value)
 
     @property
-    def right(self):
+    def right(self) -> ChildType | None:
         """
         Returns the node's rightmost child, or None if there are no children.
 
@@ -102,14 +106,15 @@ class ChildMixin:
         return self.children[-1] if self.children else None
 
     @right.setter
-    def right(self, value):
+    def right(self, value: ChildType) -> None:
         self.set_child(-1, value)
 
-    def _child_set_check(self, index):
+    def _child_set_check(self, index: int):
         if index > (len(self.children) - 1) or index < -len(self.children):
             raise IndexError
 
-    def set_child(self, index, value):
+    @abc.abstractmethod
+    def set_child(self, index: int, value: ChildType) -> None:
         """
         Sets the ith child of this object.
 
@@ -122,30 +127,15 @@ class ChildMixin:
 
 
 # ===== ast classes =====
-class Node(abc.ABC, ChildMixin):
+class Node(abc.ABC, ChildMixin["Node"]):
     """
     The base class for all AST nodes.
 
     A Node has no specific attributes, but supports all the methods in :class:`~d20.ast.ChildMixin` for traversal.
     """
 
-    # overridden here for type checking
-    def set_child(self, index, value):
-        """
-        Sets the ith child of this Node.
-
-        :param int index: Which child to set.
-        :param value: The Node to set it to.
-        :type value: Node
-        """
-        super().set_child(index, value)
-
-    @property
-    def children(self):
-        """:rtype: list of Node"""
-        raise NotImplementedError
-
-    def __str__(self):
+    @abc.abstractmethod
+    def __str__(self) -> str:
         raise NotImplementedError
 
 
@@ -154,7 +144,10 @@ class Expression(Node):  # expr
 
     __slots__ = ("roll", "comment")
 
-    def __init__(self, roll, comment=None):
+    roll: Node
+    comment: Optional[str]
+
+    def __init__(self, roll: Node, comment: Optional[str] = None):
         self.roll = roll
         self.comment = str(comment) if comment is not None else None
 
@@ -162,7 +155,7 @@ class Expression(Node):  # expr
     def children(self):
         return [self.roll]
 
-    def set_child(self, index, value):
+    def set_child(self, index: int, value: Node):
         self._child_set_check(index)
         self.roll = value
 
@@ -177,7 +170,10 @@ class AnnotatedNumber(Node):  # numexpr
 
     __slots__ = ("value", "annotations")
 
-    def __init__(self, value, *annotations):
+    value: Node
+    annotations: list[str]
+
+    def __init__(self, value: Node, *annotations: Token | str):
         """
         :type value: Node
         :type annotations: lark.Token or str
@@ -190,7 +186,7 @@ class AnnotatedNumber(Node):  # numexpr
     def children(self):
         return [self.value]
 
-    def set_child(self, index, value):
+    def set_child(self, index: int, value: Node):
         self._child_set_check(index)
         self.value = value
 
@@ -201,7 +197,9 @@ class AnnotatedNumber(Node):  # numexpr
 class Literal(Node):  # literal
     __slots__ = ("value",)
 
-    def __init__(self, value):
+    value: int | float
+
+    def __init__(self, value: Token | int | float):
         """
         :type value: lark.Token or int or float
         """
@@ -212,8 +210,11 @@ class Literal(Node):  # literal
             self.value = value
 
     @property
-    def children(self):
+    def children(self) -> list[Node]:
         return []
+
+    def set_child(self, index: int, value: Node) -> None:
+        raise ValueError(f"Cannot set the child of a Literal")
 
     def __str__(self):
         return str(self.value)
@@ -222,7 +223,9 @@ class Literal(Node):  # literal
 class Parenthetical(Node):
     __slots__ = ("value",)
 
-    def __init__(self, value):
+    value: Node
+
+    def __init__(self, value: Node):
         """
         :type value: Node
         """
@@ -233,7 +236,7 @@ class Parenthetical(Node):
     def children(self):
         return [self.value]
 
-    def set_child(self, index, value):
+    def set_child(self, index: int, value: Node):
         self._child_set_check(index)
         self.value = value
 
@@ -244,7 +247,10 @@ class Parenthetical(Node):
 class UnOp(Node):  # u_num
     __slots__ = ("op", "value")
 
-    def __init__(self, op, value):
+    op: str
+    value: Node
+
+    def __init__(self, op: str | Token, value: Node):
         """
         :type op: lark.Token or str
         :type value: Node
@@ -257,7 +263,7 @@ class UnOp(Node):  # u_num
     def children(self):
         return [self.value]
 
-    def set_child(self, index, value):
+    def set_child(self, index: int, value: Node):
         self._child_set_check(index)
         self.value = value
 
@@ -268,7 +274,11 @@ class UnOp(Node):  # u_num
 class BinOp(Node):  # a_num, m_num
     __slots__ = ("op", "left", "right")
 
-    def __init__(self, left, op, right):
+    op: str
+    left: Node
+    right: Node
+
+    def __init__(self, left: Node, op: Token | str, right: Node):
         """
         :type op: lark.Token or str
         :type left: Node
@@ -283,12 +293,12 @@ class BinOp(Node):  # a_num, m_num
     def children(self):
         return [self.left, self.right]
 
-    def set_child(self, index, value):
+    def set_child(self, index: int, value: Node):
         self._child_set_check(index)
         if self.children[index] is self.left:
-            self.left = value
+            self.left = value  # type: ignore
         else:
-            self.right = value
+            self.right = value  # type: ignore
 
     def __str__(self):
         return f"{str(self.left)} {self.op} {str(self.right)}"
@@ -299,7 +309,10 @@ class SetOperator:  # set_op, dice_op
 
     IMMEDIATE = {"mi", "ma"}
 
-    def __init__(self, op, sels):
+    op: str
+    sels: list["SetSelector"]
+
+    def __init__(self, op: str | Token, sels: list["SetSelector"]):
         """
         :type op: lark.Token or str
         :type sels: list of SetSelector
@@ -308,10 +321,10 @@ class SetOperator:  # set_op, dice_op
         self.sels = sels
 
     @classmethod
-    def new(cls, op, sel):
+    def new(cls, op: str | Token, sel: "SetSelector"):
         return cls(op, [sel])
 
-    def add_sels(self, sels):
+    def add_sels(self, sels: list["SetSelector"]):
         self.sels.extend(sels)
 
     def __str__(self):
@@ -321,7 +334,10 @@ class SetOperator:  # set_op, dice_op
 class SetSelector:  # selector
     __slots__ = ("cat", "num")
 
-    def __init__(self, cat, num):
+    cat: str | None
+    num: int
+
+    def __init__(self, cat: str | Token | None, num: int):
         """
         :type cat: str or lark.Token or None
         :type num: int
@@ -338,7 +354,10 @@ class SetSelector:  # selector
 class OperatedSet(Node):  # set
     __slots__ = ("value", "operations")
 
-    def __init__(self, the_set, *operations):
+    set: "NumberSet | Dice"
+    operations: list[SetOperator]
+
+    def __init__(self, the_set: "NumberSet | Dice", *operations: SetOperator):
         """
         :type the_set: NumberSet or Dice
         :type operations: SetOperator
@@ -352,13 +371,13 @@ class OperatedSet(Node):  # set
     def children(self):
         return [self.value]
 
-    def set_child(self, index, value):
+    def set_child(self, index: int, value: Node):
         self._child_set_check(index)
         self.value = value
 
     def _simplify_operations(self):
         """Simplifies expressions like k1k2k3 into k(1,2,3)."""
-        new_operations = []
+        new_operations: list[SetOperator] = []
 
         for operation in self.operations:
             if operation.op in SetOperator.IMMEDIATE or not new_operations:
@@ -379,7 +398,9 @@ class OperatedSet(Node):  # set
 class NumberSet(Node):  # setexpr
     __slots__ = ("values",)
 
-    def __init__(self, values):
+    values: list[Node]
+
+    def __init__(self, values: list[Node]):
         """
         :type values: list of Node
         """
@@ -390,7 +411,7 @@ class NumberSet(Node):  # setexpr
     def children(self):
         return self.values
 
-    def set_child(self, index, value):
+    def set_child(self, index: int, value: Node):
         self._child_set_check(index)
         self.values[index] = value
 
@@ -408,7 +429,7 @@ class NumberSet(Node):  # setexpr
 class OperatedDice(OperatedSet):  # dice
     __slots__ = ()
 
-    def __init__(self, the_dice, *operations):
+    def __init__(self, the_dice: "Dice", *operations: SetOperator):
         """
         :type the_dice: Dice
         :type operations: SetOperator
@@ -419,7 +440,10 @@ class OperatedDice(OperatedSet):  # dice
 class Dice(Node):  # diceexpr
     __slots__ = ("num", "size")
 
-    def __init__(self, num, size):
+    num: int
+    size: str | int
+
+    def __init__(self, num: int | Token, size: int | str | Token):
         """
         :type num: lark.Token or int
         :type size: lark.Token or int or str
@@ -432,8 +456,11 @@ class Dice(Node):  # diceexpr
             self.size = int(size)
 
     @property
-    def children(self):
+    def children(self) -> list[Node]:
         return []
+
+    def set_child(self, index: int, value: Node) -> None:
+        raise ValueError(f"Cannot set the child of a Dice")
 
     def __str__(self):
         return f"{self.num}d{self.size}"
@@ -448,7 +475,7 @@ parser = Lark(
 if __name__ == "__main__":
     while True:
         parser = Lark(grammar, start=["expr", "commented_expr"], parser="lalr", maybe_placeholders=True)
-        result = parser.parse(input(), start="expr")
+        result = parser.parse(input("> "), start="expr")  # type: ignore
         print(result.pretty())
         print(result)
         expr = RollTransformer().transform(result)

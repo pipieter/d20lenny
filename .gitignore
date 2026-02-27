@@ -129,3 +129,4 @@ testenv/
 tree.png
 .DS_Store
 
+.vscode

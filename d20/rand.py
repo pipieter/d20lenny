@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, Any, NewType, Optional, Sequence, Type, Union
 
 __all__ = ("random_impl",)
 
-_BitGenT = NewType("_BitGenT", Any)
+_BitGenT = NewType("_BitGenT", Any)  # type: ignore
 _SeedT = Optional[Union[int, Sequence[int]]]
 
 # the default random implementation - just use stdlib random (MT2002)
@@ -41,11 +41,11 @@ try:
     class NumpyRandom(random.Random):
         _gen: Generator
 
-        def __init__(self, bitgen_type: Type[_BitGenT], x: _SeedT = None):
-            self._bitgen_type = bitgen_type
+        def __init__(self, bitgen_type: Type[_BitGenT], x: _SeedT = None):  # pyright: ignore
+            self._bitgen_type = bitgen_type  # pyright: ignore[reportUnknownMemberType]
             # Random.__init__() calls seed(), so we let seed() initialize the Generator instance to avoid instantiating
             # it twice (once in __init__, once in seed())
-            super().__init__(x)
+            super().__init__(x)  # pyright: ignore[reportUnknownArgumentType]
 
         def random(self) -> float:
             return self._gen.random()
@@ -64,16 +64,16 @@ try:
             # (tested on 1.17.5)
             return self._gen.bytes(n)
 
-        def seed(self, a: _SeedT = None, version: int = 2):
+        def seed(self, a: _SeedT = None, version: int = 2):  # type: ignore
             # note that this takes in a different type than random.Random.seed()
             # this is because BitGenerator's seed requires an int/sequence of ints, while Random accepts
             # floats, strs, etc; for the common case we expect the user to pass an int
-            self._gen = Generator(self._bitgen_type(a))
+            self._gen = Generator(self._bitgen_type(a))  # type: ignore
 
-        def getstate(self):
+        def getstate(self):  # type: ignore
             return self._gen.bit_generator.state
 
-        def setstate(self, state):
+        def setstate(self, state: Any):
             self._gen.bit_generator.state = state
 
     if hasattr(numpy.random, "PCG64DXSM"):  # available in numpy 1.21 and up

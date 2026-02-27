@@ -1,11 +1,9 @@
 import abc
-from typing import Callable, Iterable, Mapping, Type, TypeVar
+from typing import Any, Callable, Iterable, Mapping, Type
 
 from .expression import *
 
 __all__ = ("Stringifier", "SimpleStringifier", "MarkdownStringifier")
-
-ExpressionNode = TypeVar("ExpressionNode", bound=Number)
 
 
 class Stringifier(abc.ABC):
@@ -15,7 +13,7 @@ class Stringifier(abc.ABC):
     """
 
     def __init__(self):
-        self._nodes: Mapping[Type[ExpressionNode], Callable[[ExpressionNode], str]] = {
+        self._nodes: Mapping[Type[Number], Callable[[Any], str]] = {
             Expression: self._str_expression,
             Literal: self._str_literal,
             UnOp: self._str_unop,
@@ -26,7 +24,7 @@ class Stringifier(abc.ABC):
             Die: self._str_die,
         }
 
-    def stringify(self, the_roll: ExpressionNode) -> str:
+    def stringify(self, the_roll: Number) -> str:
         """
         Transforms a rolled expression into a string recursively, bottom-up.
 
@@ -36,7 +34,7 @@ class Stringifier(abc.ABC):
         """
         return self._stringify(the_roll)
 
-    def _stringify(self, node: ExpressionNode) -> str:
+    def _stringify(self, node: Number) -> str:
         """
         Called on each node that needs to be stringified.
 
@@ -124,35 +122,35 @@ class SimpleStringifier(Stringifier):
     Example stringifier.
     """
 
-    def _str_expression(self, node):
+    def _str_expression(self, node: Expression):
         return f"{self._stringify(node.roll)} = {int(node.total)}"
 
-    def _str_literal(self, node):
+    def _str_literal(self, node: Literal):
         history = " -> ".join(map(str, node.values))
         if node.exploded:
             return f"{history}!"
         return history
 
-    def _str_unop(self, node):
+    def _str_unop(self, node: UnOp):
         return f"{node.op}{self._stringify(node.value)}"
 
-    def _str_binop(self, node):
+    def _str_binop(self, node: BinOp):
         return f"{self._stringify(node.left)} {node.op} {self._stringify(node.right)}"
 
-    def _str_parenthetical(self, node):
+    def _str_parenthetical(self, node: Parenthetical):
         return f"({self._stringify(node.value)}){self._str_ops(node.operations)}"
 
-    def _str_set(self, node):
+    def _str_set(self, node: Set):
         out = f"{', '.join([self._stringify(v) for v in node.values])}"
         if len(node.values) == 1:
             return f"({out},){self._str_ops(node.operations)}"
         return f"({out}){self._str_ops(node.operations)}"
 
-    def _str_dice(self, node):
+    def _str_dice(self, node: Dice):
         the_dice = [self._stringify(die) for die in node.values]
         return f"{node.num}d{node.size}{self._str_ops(node.operations)} ({', '.join(the_dice)})"
 
-    def _str_die(self, node):
+    def _str_die(self, node: Die):
         the_rolls = [self._stringify(val) for val in node.values]
         return ", ".join(the_rolls)
 
@@ -173,11 +171,11 @@ class MarkdownStringifier(SimpleStringifier):
         super().__init__()
         self._context = self._MDContext()
 
-    def stringify(self, the_roll):
+    def stringify(self, the_roll: Number):
         self._context.reset()
         return super().stringify(the_roll)
 
-    def _stringify(self, node):
+    def _stringify(self, node: Number):
         if not node.kept and not self._context.in_dropped:
             self._context.in_dropped = True
             inside = super()._stringify(node)
@@ -185,11 +183,11 @@ class MarkdownStringifier(SimpleStringifier):
             return f"~~{inside}~~"
         return super()._stringify(node)
 
-    def _str_expression(self, node):
+    def _str_expression(self, node: Expression):
         return f"{self._stringify(node.roll)} = `{int(node.total)}`"
 
-    def _str_die(self, node):
-        the_rolls = []
+    def _str_die(self, node: Die):
+        the_rolls: list[str] = []
         for val in node.values:
             inside = self._stringify(val)
             if val.number == 1 or val.number == node.size:
