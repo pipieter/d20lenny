@@ -1,16 +1,14 @@
 import copy
-from typing import Callable, Optional, TypeVar
+from typing import Any, Callable, Optional, TypeVar
 
-import d20  # this import is here for the doctests
+import d20  # type: ignore # this import is here for the doctests
 from d20 import diceast, expression
 from .dice import AdvType
 
-TreeType = TypeVar("TreeType", bound=diceast.ChildMixin)
-ASTNode = TypeVar("ASTNode", bound=diceast.Node)
-ExpressionNode = TypeVar("ExpressionNode", bound=expression.Number)
+TreeType = TypeVar("TreeType", bound=diceast.ChildMixin[Any])
 
 
-def ast_adv_copy(ast: ASTNode, advtype: AdvType) -> ASTNode:
+def ast_adv_copy(ast: diceast.Node, advtype: AdvType) -> diceast.Node:
     """
     Returns a minimally shallow copy of a dice AST with respect to advantage.
 
@@ -33,7 +31,7 @@ def ast_adv_copy(ast: ASTNode, advtype: AdvType) -> ASTNode:
     parent = child = root
     while child.children:
         parent = child
-        parent.left = child = copy.copy(parent.left)
+        parent.left = child = copy.copy(parent.left) # type: ignore
 
     # is it dice?
     if not isinstance(child, diceast.Dice):
@@ -46,7 +44,7 @@ def ast_adv_copy(ast: ASTNode, advtype: AdvType) -> ASTNode:
     # does it already have operations?
     if not isinstance(parent, diceast.OperatedDice):
         new_parent = diceast.OperatedDice(child)
-        parent.left = new_parent
+        parent.left = new_parent # type: ignore
         parent = new_parent
     else:
         parent.operations = parent.operations.copy()
@@ -65,7 +63,7 @@ def ast_adv_copy(ast: ASTNode, advtype: AdvType) -> ASTNode:
     return root
 
 
-def simplify_expr_annotations(expr: ExpressionNode, ambig_inherit: Optional[str] = None):
+def simplify_expr_annotations(expr: expression.Number, ambig_inherit: Optional[str] = None):
     """
     Transforms an expression in place by simplifying the annotations using a bubble-up method.
 
@@ -82,9 +80,9 @@ def simplify_expr_annotations(expr: ExpressionNode, ambig_inherit: Optional[str]
     if ambig_inherit not in ("left", "right", None):
         raise ValueError("ambig_inherit must be 'left', 'right', or None.")
 
-    def do_simplify(node):
-        possible_types = []
-        child_possibilities = {}
+    def do_simplify(node: expression.Number) -> tuple[str, ...]:
+        possible_types: list[str] = []
+        child_possibilities: dict[expression.Number, tuple[str, ...]] = {}
         for child in node.children:
             child_possibilities[child] = do_simplify(child)
             possible_types.extend(t for t in child_possibilities[child] if t not in possible_types)
@@ -117,7 +115,7 @@ def simplify_expr_annotations(expr: ExpressionNode, ambig_inherit: Optional[str]
     do_simplify(expr)
 
 
-def simplify_expr(expr: expression.Expression, **kwargs):
+def simplify_expr(expr: expression.Expression, ambig_inherit: Optional[str] = None):
     """
     Transforms an expression in place by simplifying it (removing all dice and evaluating branches with respect to
     annotations).
@@ -130,15 +128,15 @@ def simplify_expr(expr: expression.Expression, **kwargs):
     :param d20.Expression expr: The expression to transform.
     :param kwargs: Arguments that are passed to :func:`simplify_expr_annotations`.
     """
-    simplify_expr_annotations(expr.roll, **kwargs)
+    simplify_expr_annotations(expr.roll, ambig_inherit)
 
-    def do_simplify(node, first=False):
+    def do_simplify(node: expression.Number, first: bool = False) -> tuple[expression.Number, bool]:
         """returns a pair of (replacement, branch had replacement)"""
         if node.annotation:
-            return expression.Literal(node.total, annotation=node.annotation), True
+            return expression.Literal(node.total, kept=node.kept, annotation=node.annotation), True
 
         # pass 1: recursively replace branches with annotations, marking which branches had replacements
-        had_replacement = set()
+        had_replacement: set[int] = set()
         for i, child in enumerate(node.children):
             replacement, branch_had = do_simplify(child)
             if branch_had:
@@ -150,7 +148,7 @@ def simplify_expr(expr: expression.Expression, **kwargs):
         for i, child in enumerate(node.children):
             if (i not in had_replacement) and (had_replacement or first):
                 # here is the furthest we can bubble up a no-annotation branch
-                replacement = expression.Literal(child.total)
+                replacement = expression.Literal(child.total, kept=child.kept, annotation=child.annotation)
                 node.set_child(i, replacement)
 
         return node, bool(had_replacement)
