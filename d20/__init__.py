@@ -1,4 +1,4 @@
-from . import diceast as ast, rand, utils
+from . import diceast as ast, rand, utils # type: ignore
 from .dice import *
 from .errors import *
 from .expression import *
