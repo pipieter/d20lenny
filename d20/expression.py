@@ -1,7 +1,15 @@
 import abc
 from collections.abc import Callable, Iterable, Mapping, Sequence
 import random
-from typing import Optional, TypedDict, Unpack
+
+from typing import Optional, TypedDict
+
+# Prior to 3.12, Unpack was located in typing_extensions rather than typing
+try:
+    from typing import Unpack
+except:
+    from typing_extensions import Unpack
+
 
 from .context import RollContext
 
