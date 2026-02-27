@@ -1,6 +1,7 @@
 import random
 from enum import IntEnum
-from typing import Callable, Mapping, MutableMapping, Optional, Type, TypeVar, Union
+from typing import Any, Callable, Mapping, MutableMapping, Optional, Type, Union
+import typing
 
 import cachetools
 import lark
@@ -16,10 +17,6 @@ __all__ = ("CritType", "AdvType", "RollResult", "Roller")
 POSSIBLE_COMMENT_AMBIGUITIES = {
     "*",
 }
-
-TreeType = TypeVar("TreeType", bound=ast.ChildMixin)
-ASTNode = TypeVar("ASTNode", bound=ast.Node)
-ExpressionNode = TypeVar("ExpressionNode", bound=Number)
 
 
 class CritType(IntEnum):
@@ -47,7 +44,7 @@ class RollResult:
     Holds information about the result of a roll. This should generally not be constructed manually.
     """
 
-    def __init__(self, the_ast: ASTNode, the_roll: Expression, stringifier: Stringifier):
+    def __init__(self, the_ast: ast.Node, the_roll: Expression, stringifier: Stringifier):
         """
         :type the_ast: ast.Node
         :type the_roll: d20.Expression
@@ -111,11 +108,11 @@ class RollResult:
 class Roller:
     """The main class responsible for parsing dice into an AST and evaluating that AST."""
 
-    def __init__(self, context: RollContext = None, rng: random.Random = rand.random_impl):
+    def __init__(self, context: Optional[RollContext] = None, rng: random.Random = rand.random_impl):
         if context is None:
             context = RollContext()
 
-        self._nodes: Mapping[Type[ASTNode], Callable[[ASTNode], ExpressionNode]] = {
+        self._nodes: Mapping[Type[ast.Node], Callable[[Any], Number]] = {
             ast.Expression: self._eval_expression,
             ast.AnnotatedNumber: self._eval_annotatednumber,
             ast.Literal: self._eval_literal,
@@ -127,13 +124,13 @@ class Roller:
             ast.OperatedDice: self._eval_operateddice,
             ast.Dice: self._eval_dice,
         }
-        self._parse_cache: MutableMapping[str, ASTNode] = cachetools.LFUCache(256)
+        self._parse_cache: MutableMapping[str, ast.Node] = cachetools.LFUCache(256)
         self.context = context
         self.rng = rng
 
     def roll(
         self,
-        expr: Union[str, ASTNode],
+        expr: Union[str, ast.Node],
         stringifier: Optional[Stringifier] = None,
         allow_comments: bool = False,
         advantage: AdvType = AdvType.NONE,
@@ -163,6 +160,7 @@ class Roller:
             dice_tree = utils.ast_adv_copy(dice_tree, advantage)
 
         dice_expr = self._eval(dice_tree)
+        dice_expr = typing.cast(Expression, dice_expr)
         return RollResult(dice_tree, dice_expr, stringifier)
 
     # parsers
@@ -189,14 +187,20 @@ class Roller:
         # see if this expr is in cache
         clean_expr = expr.replace(" ", "")
         if clean_expr in self._parse_cache:
-            return self._parse_cache[clean_expr]
-        dice_tree = ast.parser.parse(expr, start="expr")
-        self._parse_cache[clean_expr] = dice_tree
+            dice_tree = self._parse_cache[clean_expr]
+            dice_tree = typing.cast(ast.Expression, dice_tree)
+        else:
+            dice_tree = ast.parser.parse(expr, start="expr")  # type: ignore
+            dice_tree = typing.cast(ast.Node, dice_tree)
+            self._parse_cache[clean_expr] = dice_tree
+            dice_tree = typing.cast(ast.Expression, dice_tree)
         return dice_tree
 
     def _parse_with_comments(self, expr: str) -> ast.Expression:
         try:
-            return ast.parser.parse(expr, start="commented_expr")
+            dice_tree = ast.parser.parse(expr, start="commented_expr")  # type: ignore
+            dice_tree = typing.cast(ast.Expression, dice_tree)
+            return dice_tree
         except lark.UnexpectedInput as ui:
             # if the statement up to the unexpected token ends with an operator, remove that from the end
             successful_fragment = expr[: ui.pos_in_stream]
@@ -208,39 +212,41 @@ class Roller:
             else:
                 raise
             # and parse again (handles edge cases like "1d20 keep the dragon grappled")
-            result = ast.parser.parse(successful_fragment, start="commented_expr")
-            result.comment = force_comment
-            return result
+            dice_tree = ast.parser.parse(successful_fragment, start="commented_expr")  # type: ignore
+            dice_tree = typing.cast(ast.Expression, dice_tree)
+            dice_tree.comment = force_comment
+            return dice_tree
 
     # evaluator
-    def _eval(self, node: ASTNode) -> ExpressionNode:
+    def _eval(self, node: ast.Node) -> Number:
         # noinspection PyUnresolvedReferences
         # for some reason pycharm thinks this isn't a valid dict operation
         handler = self._nodes[type(node)]
         return handler(node)
 
     def _eval_expression(self, node: ast.Expression) -> Expression:
-        return Expression(self._eval(node.roll), node.comment)
+        return Expression(self._eval(node.roll), node.comment, kept=True, annotation=None)
 
-    def _eval_annotatednumber(self, node: ast.AnnotatedNumber) -> ExpressionNode:
+    def _eval_annotatednumber(self, node: ast.AnnotatedNumber) -> Number:
         target = self._eval(node.value)
         target.annotation = "".join(node.annotations)
         return target
 
     def _eval_literal(self, node: ast.Literal) -> Literal:
-        return Literal(node.value)
+        return Literal(node.value, kept=True, annotation=None)
 
     def _eval_parenthetical(self, node: ast.Parenthetical) -> Parenthetical:
-        return Parenthetical(self._eval(node.value))
+        return Parenthetical(self._eval(node.value), kept=True, annotation=None)
 
     def _eval_unop(self, node: ast.UnOp) -> UnOp:
-        return UnOp(node.op, self._eval(node.value))
+        return UnOp(node.op, self._eval(node.value), kept=True, annotation=None)
 
     def _eval_binop(self, node: ast.BinOp) -> BinOp:
-        return BinOp(self._eval(node.left), node.op, self._eval(node.right))
+        return BinOp(self._eval(node.left), node.op, self._eval(node.right), kept=True, annotation=None)
 
-    def _eval_operatedset(self, node: ast.OperatedSet) -> ExpressionNode:
+    def _eval_operatedset(self, node: ast.OperatedSet) -> Number:
         target = self._eval(node.value)
+        target = typing.cast(Set, target)
         for op in node.operations:
             the_op = SetOperator.from_ast(op)
             the_op.operate(target)
@@ -248,10 +254,10 @@ class Roller:
         return target
 
     def _eval_numberset(self, node: ast.NumberSet) -> Set:
-        return Set([self._eval(n) for n in node.values])
+        return Set([self._eval(n) for n in node.values], kept=True, annotation=None)
 
-    def _eval_operateddice(self, node: ast.OperatedDice) -> ExpressionNode:
+    def _eval_operateddice(self, node: ast.OperatedDice) -> Number:
         return self._eval_operatedset(node)
 
     def _eval_dice(self, node: ast.Dice) -> Dice:
-        return Dice.new(node.num, node.size, context=self.context, rng=self.rng)
+        return Dice.new(node.num, node.size, context=self.context, rng=self.rng, kept=True, annotation=None)
