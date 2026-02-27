@@ -29,9 +29,9 @@ def ast_adv_copy(ast: diceast.Node, advtype: AdvType) -> diceast.Node:
 
     # find the leftmost node, making shallow copies all the way down
     parent = child = root
-    while child.children:
+    while child.children:  # type: ignore
         parent = child
-        parent.left = child = copy.copy(parent.left) # type: ignore
+        parent.left = child = copy.copy(parent.left)  # type: ignore
 
     # is it dice?
     if not isinstance(child, diceast.Dice):
@@ -44,7 +44,7 @@ def ast_adv_copy(ast: diceast.Node, advtype: AdvType) -> diceast.Node:
     # does it already have operations?
     if not isinstance(parent, diceast.OperatedDice):
         new_parent = diceast.OperatedDice(child)
-        parent.left = new_parent # type: ignore
+        parent.left = new_parent  # type: ignore
         parent = new_parent
     else:
         parent.operations = parent.operations.copy()
