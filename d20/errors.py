@@ -1,17 +1,20 @@
 __all__ = ("RollError", "RollSyntaxError", "RollValueError", "TooManyRolls")
 
 
+from typing import Any
+
+
 class RollError(Exception):
     """Generic exception happened in the roll. Base exception for all library exceptions."""
 
-    def __init__(self, msg):
+    def __init__(self, msg: str):
         super().__init__(msg)
 
 
 class RollSyntaxError(RollError):
     """Syntax error happened while parsing roll."""
 
-    def __init__(self, line, col, got, expected):
+    def __init__(self, line: int, col: int, got: Any, expected: Any):
         self.line = line
         self.col = col
         self.got = got
