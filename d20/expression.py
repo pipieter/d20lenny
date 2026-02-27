@@ -1,5 +1,9 @@
 import abc
+from collections.abc import Callable, Iterable, Mapping, Sequence
 import random
+from typing import Optional, TypedDict, Unpack
+
+from .context import RollContext
 
 from . import diceast as ast, errors, rand
 
@@ -19,7 +23,12 @@ __all__ = (
 
 
 # ===== ast -> expression models =====
-class Number(abc.ABC, ast.ChildMixin):  # num
+class NumberArgs(TypedDict):
+    kept: bool
+    annotation: Optional[str]
+
+
+class Number(abc.ABC, ast.ChildMixin["Number"]):  # num
     """
     The base class for all expression objects.
 
@@ -28,12 +37,15 @@ class Number(abc.ABC, ast.ChildMixin):  # num
 
     __slots__ = ("kept", "annotation")
 
-    def __init__(self, kept=True, annotation=None):
+    kept: bool
+    annotation: Optional[str]
+
+    def __init__(self, kept: bool = True, annotation: Optional[str] = None):
         self.kept = kept
         self.annotation = annotation
 
     @property
-    def number(self):
+    def number(self) -> int | float:
         """
         Returns the numerical value of this object.
 
@@ -42,7 +54,7 @@ class Number(abc.ABC, ast.ChildMixin):  # num
         return sum(n.number for n in self.keptset)
 
     @property
-    def total(self):
+    def total(self) -> int | float:
         """
         Returns the numerical value of this object with respect to whether it's kept.
         Generally, this is preferred to use over ``number``, as this will return 0 if
@@ -53,7 +65,8 @@ class Number(abc.ABC, ast.ChildMixin):  # num
         return self.number if self.kept else 0
 
     @property
-    def set(self):
+    @abc.abstractmethod
+    def set(self) -> Sequence["Number"]:
         """
         Returns the set representation of this object.
 
@@ -86,29 +99,16 @@ class Number(abc.ABC, ast.ChildMixin):  # num
     def __repr__(self):
         return f"<Number total={self.total} kept={self.kept}>"
 
-    # overridden methods for typechecking
-    def set_child(self, index, value):
-        """
-        Sets the ith child of this Number.
-
-        :param int index: Which child to set.
-        :param value: The Number to set it to.
-        :type value: Number
-        """
-        super().set_child(index, value)
-
-    @property
-    def children(self):
-        """:rtype: list[Number]"""
-        raise NotImplementedError
-
 
 class Expression(Number):
     """Expressions are usually the root of all Number trees."""
 
     __slots__ = ("roll", "comment")
 
-    def __init__(self, roll, comment, **kwargs):
+    roll: Number
+    comment: Optional[str]
+
+    def __init__(self, roll: Number, comment: Optional[str], **kwargs: Unpack[NumberArgs]):
         """
         :type roll: Number
         """
@@ -128,7 +128,7 @@ class Expression(Number):
     def children(self):
         return [self.roll]
 
-    def set_child(self, index, value):
+    def set_child(self, index: int, value: Number):
         self._child_set_check(index)
         self.roll = value
 
@@ -141,7 +141,10 @@ class Literal(Number):
 
     __slots__ = ("values", "exploded")
 
-    def __init__(self, value, **kwargs):
+    values: list[int | float]
+    exploded: bool
+
+    def __init__(self, value: int | float, **kwargs: Unpack[NumberArgs]):
         """
         :type value: int or float
         """
@@ -154,21 +157,24 @@ class Literal(Number):
         return self.values[-1]
 
     @property
-    def set(self):
+    def set(self) -> list[Number]:
         return [self]
 
     @property
-    def children(self):
+    def children(self) -> list[Number]:
         return []
 
     def explode(self):
         self.exploded = True
 
-    def update(self, value):
+    def update(self, value: int | float):
         """
         :type value: int or float
         """
         self.values.append(value)
+
+    def set_child(self, index: int, value: Number) -> None:
+        raise ValueError(f"Cannot set the child of a Literal")
 
     def __repr__(self):
         return f"<Literal {self.number}>"
@@ -179,9 +185,12 @@ class UnOp(Number):
 
     __slots__ = ("op", "value")
 
-    UNARY_OPS = {"-": lambda v: -v, "+": lambda v: +v}
+    op: str
+    value: Number
 
-    def __init__(self, op, value, **kwargs):
+    UNARY_OPS: Mapping[str, Callable[[int | float], int | float]] = {"-": lambda v: -v, "+": lambda v: +v}
+
+    def __init__(self, op: str, value: Number, **kwargs: Unpack[NumberArgs]):
         """
         :type op: str
         :type value: Number
@@ -195,14 +204,14 @@ class UnOp(Number):
         return self.UNARY_OPS[self.op](self.value.total)
 
     @property
-    def set(self):
+    def set(self) -> list[Number]:
         return [self]
 
     @property
     def children(self):
         return [self.value]
 
-    def set_child(self, index, value):
+    def set_child(self, index: int, value: Number):
         self._child_set_check(index)
         self.value = value
 
@@ -215,7 +224,11 @@ class BinOp(Number):
 
     __slots__ = ("op", "left", "right")
 
-    BINARY_OPS = {
+    op: str
+    left: Number
+    right: Number
+
+    BINARY_OPS: Mapping[str, Callable[[int | float, int | float], int | float]] = {
         "+": lambda l, r: l + r,
         "-": lambda l, r: l - r,
         "*": lambda l, r: l * r,
@@ -230,7 +243,7 @@ class BinOp(Number):
         "!=": lambda l, r: int(l != r),
     }
 
-    def __init__(self, left, op, right, **kwargs):
+    def __init__(self, left: Number, op: str, right: Number, **kwargs: Unpack[NumberArgs]):
         """
         :type op: str
         :type left: Number
@@ -249,19 +262,19 @@ class BinOp(Number):
             raise errors.RollValueError("Cannot divide by zero.")
 
     @property
-    def set(self):
+    def set(self) -> list[Number]:
         return [self]
 
     @property
     def children(self):
         return [self.left, self.right]
 
-    def set_child(self, index, value):
+    def set_child(self, index: int, value: Number):
         self._child_set_check(index)
         if self.children[index] is self.left:
-            self.left = value
+            self.left = value  # type: ignore
         else:
-            self.right = value
+            self.right = value  # type: ignore
 
     def __repr__(self):
         return f"<BinOp left={self.left} op={self.op} right={self.right}>"
@@ -272,7 +285,15 @@ class Parenthetical(Number):
 
     __slots__ = ("value", "operations")
 
-    def __init__(self, value, operations=None, **kwargs):
+    value: Number
+    operations: list["SetOperator"]
+
+    def __init__(
+        self,
+        value: Number,
+        operations: Optional[list["SetOperator"]] = None,
+        **kwargs: Unpack[NumberArgs],
+    ):
         """
         :type value: Number
         :type operations: list[SetOperator]
@@ -295,7 +316,7 @@ class Parenthetical(Number):
     def children(self):
         return [self.value]
 
-    def set_child(self, index, value):
+    def set_child(self, index: int, value: Number):
         self._child_set_check(index)
         self.value = value
 
@@ -308,7 +329,15 @@ class Set(Number):
 
     __slots__ = ("values", "operations")
 
-    def __init__(self, values, operations=None, **kwargs):
+    values: list[Number]
+    operations: list["SetOperator"]
+
+    def __init__(
+        self,
+        values: list[Number],
+        operations: Optional[list["SetOperator"]] = None,
+        **kwargs: Unpack[NumberArgs],
+    ):
         """
         :type values: list[Number]
         :type operations: list[SetOperator]
@@ -320,14 +349,14 @@ class Set(Number):
         self.operations = operations
 
     @property
-    def set(self):
+    def set(self) -> list[Number]:
         return self.values
 
     @property
-    def children(self):
+    def children(self) -> list[Number]:
         return self.values
 
-    def set_child(self, index, value):
+    def set_child(self, index: int, value: Number):
         self._child_set_check(index)
         self.values[index] = value
 
@@ -335,7 +364,12 @@ class Set(Number):
         return f"<Set values={self.values} operations={self.operations}>"
 
     def __copy__(self):
-        return Set(values=self.values.copy(), operations=self.operations.copy())
+        return Set(
+            values=self.values.copy(),
+            operations=self.operations.copy(),
+            kept=self.kept,
+            annotation=self.annotation,
+        )
 
 
 class Dice(Set):
@@ -343,7 +377,23 @@ class Dice(Set):
 
     __slots__ = ("num", "size", "_context", "_rng")
 
-    def __init__(self, num, size, values, operations=None, context=None, rng=rand.random_impl, **kwargs):
+    num: int
+    size: int | str
+    values: list["Number"]
+    operations: list["SetOperator"]
+    _context: Optional[RollContext]
+    _rng: random.Random
+
+    def __init__(
+        self,
+        num: int,
+        size: int | str,
+        values: list[Number],
+        operations: Optional[list["SetOperator"]] = None,
+        context: Optional[RollContext] = None,
+        rng: random.Random = rand.random_impl,
+        **kwargs: Unpack[NumberArgs],
+    ):
         """
         :type num: int
         :type size: int|str
@@ -359,14 +409,28 @@ class Dice(Set):
         self._rng = rng
 
     @classmethod
-    def new(cls, num, size, context=None, rng=rand.random_impl):
-        return cls(num, size, [Die.new(size, context=context, rng=rng) for _ in range(num)], context=context, rng=rng)
+    def new(
+        cls,
+        num: int,
+        size: int | str,
+        context: Optional[RollContext] = None,
+        rng: random.Random = rand.random_impl,
+        **kwargs: Unpack[NumberArgs],
+    ):
+        return cls(
+            num,
+            size,
+            [Die.new(size, context=context, rng=rng) for _ in range(num)],
+            context=context,
+            rng=rng,
+            **kwargs,
+        )
 
     def roll_another(self):
         self.values.append(Die.new(self.size, context=self._context, rng=self._rng))
 
     @property
-    def children(self):
+    def children(self) -> list[Number]:
         return []
 
     def __repr__(self):
@@ -380,6 +444,8 @@ class Dice(Set):
             rng=self._rng,
             values=self.values.copy(),
             operations=self.operations.copy(),
+            kept=self.kept,
+            annotation=self.annotation,
         )
 
 
@@ -388,7 +454,18 @@ class Die(Number):  # part of diceexpr
 
     __slots__ = ("size", "values", "_context", "_rng")
 
-    def __init__(self, size, values, context=None, rng=rand.random_impl):
+    size: int | str
+    values: list[Literal]
+    _context: Optional[RollContext]
+    _rng: random.Random
+
+    def __init__(
+        self,
+        size: int | str,
+        values: list[Literal],
+        context: Optional[RollContext] = None,
+        rng: random.Random = rand.random_impl,
+    ):
         """
         :type size: int
         :type values: list of Literal
@@ -402,7 +479,9 @@ class Die(Number):  # part of diceexpr
         self._rng = rng
 
     @classmethod
-    def new(cls, size, context=None, rng=rand.random_impl):
+    def new(
+        cls, size: int | str, context: Optional[RollContext] = None, rng: random.Random = rand.random_impl
+    ) -> "Die":
         inst = cls(size, [], context=context, rng=rng)
         inst._add_roll()
         return inst
@@ -412,25 +491,28 @@ class Die(Number):  # part of diceexpr
         return self.values[-1].total
 
     @property
-    def set(self):
+    def set(self) -> list[Number]:
         return [self.values[-1]]
 
     @property
-    def children(self):
+    def children(self) -> list[Number]:
         return []
 
     def _add_roll(self):
-        if self.size != "%" and self.size < 1:
+        if self.size != "%" and isinstance(self.size, int) and self.size < 1:
             raise errors.RollValueError("Cannot roll a 0-sided die.")
         if self._context:
             self._context.count_roll()
         if self.size == "%":
-            n = Literal(self._rng.randrange(10) * 10)
+            n = Literal(self._rng.randrange(10) * 10, kept=self.kept, annotation=self.annotation)
+        elif isinstance(self.size, int):
+            # 200ns faster than randint(1, self._size)
+            n = Literal(self._rng.randrange(self.size) + 1, kept=self.kept, annotation=self.annotation)
         else:
-            n = Literal(self._rng.randrange(self.size) + 1)  # 200ns faster than randint(1, self._size)
+            raise ValueError(f"Invalid die size value: '{self.size}'")
         self.values.append(n)
 
-    def reroll(self):
+    def reroll(self) -> None:
         if self.values:
             self.values[-1].drop()
         self._add_roll()
@@ -440,7 +522,7 @@ class Die(Number):  # part of diceexpr
             self.values[-1].explode()
         # another Die is added by the explode operator
 
-    def force_value(self, new_value):
+    def force_value(self, new_value: int | float):
         if self.values:
             self.values[-1].update(new_value)
 
@@ -455,7 +537,10 @@ class SetOperator:  # set_op, dice_op
 
     __slots__ = ("op", "sels")
 
-    def __init__(self, op, sels):
+    op: str
+    sels: list["SetSelector"]
+
+    def __init__(self, op: str, sels: list["SetSelector"]):
         """
         :type op: str
         :type sels: list[SetSelector]
@@ -464,10 +549,14 @@ class SetOperator:  # set_op, dice_op
         self.sels = sels
 
     @classmethod
-    def from_ast(cls, node):
+    def from_ast(cls, node: ast.SetOperator):
         return cls(node.op, [SetSelector.from_ast(n) for n in node.sels])
 
-    def select(self, target, max_targets=None):
+    @staticmethod
+    def filter_die(target: Iterable[Number]) -> set[Die]:
+        return set(die for die in target if isinstance(die, Die))
+
+    def select(self, target: Set, max_targets: Optional[int] = None) -> set[Number]:
         """
         Selects the operands in a target set.
 
@@ -476,7 +565,7 @@ class SetOperator:  # set_op, dice_op
         :param max_targets: The maximum number of targets to select.
         :type max_targets: Optional[int]
         """
-        out = set()
+        out: set[Number] = set()
         for selector in self.sels:
             batch_max = None
             if max_targets is not None:
@@ -487,14 +576,14 @@ class SetOperator:  # set_op, dice_op
             out.update(selector.select(target, max_targets=batch_max))
         return out
 
-    def operate(self, target):
+    def operate(self, target: Set):
         """
         Operates in place on the values in a target set.
 
         :param target: The source of the operands.
-        :type target: Number
+        :type target: Set
         """
-        operations = {
+        operations: Mapping[str, Callable[[Set], None]] = {
             "k": self.keep,
             "p": self.drop,
             # dice only
@@ -508,7 +597,7 @@ class SetOperator:  # set_op, dice_op
 
         operations[self.op](target)
 
-    def keep(self, target):
+    def keep(self, target: Set):
         """
         :type target: Set
         """
@@ -516,37 +605,44 @@ class SetOperator:  # set_op, dice_op
             if value not in self.select(target):
                 value.drop()
 
-    def drop(self, target):
+    def drop(self, target: Set):
         """
         :type target: Set
         """
         for value in self.select(target):
             value.drop()
 
-    def reroll(self, target):
+    def reroll(self, target: Set):
         """
         :type target: Dice
         """
-        to_reroll = self.select(target)
+        if not isinstance(target, Dice):
+            return
+
+        to_reroll = self.filter_die(self.select(target))
+
         while to_reroll:
             for die in to_reroll:
                 die.reroll()
 
-            to_reroll = self.select(target)
+            to_reroll = self.filter_die(self.select(target))
 
-    def reroll_once(self, target):
+    def reroll_once(self, target: Set):
         """
         :type target: Dice
         """
-        for die in self.select(target):
+        for die in self.filter_die(self.select(target)):
             die.reroll()
 
-    def explode(self, target):
+    def explode(self, target: Set):
         """
         :type target: Dice
         """
-        to_explode = self.select(target)
-        already_exploded = set()
+        if not isinstance(target, Dice):
+            return
+
+        to_explode = self.filter_die(self.select(target))
+        already_exploded: set[Die] = set()
 
         while to_explode:
             for die in to_explode:
@@ -554,17 +650,20 @@ class SetOperator:  # set_op, dice_op
                 target.roll_another()
 
             already_exploded.update(to_explode)
-            to_explode = self.select(target).difference(already_exploded)
+            to_explode = self.filter_die(self.select(target)).difference(already_exploded)
 
-    def explode_once(self, target):
+    def explode_once(self, target: Set):
         """
         :type target: Dice
         """
-        for die in self.select(target, max_targets=1):
+        if not isinstance(target, Dice):
+            return
+
+        for die in self.filter_die(self.select(target, max_targets=1)):
             die.explode()
             target.roll_another()
 
-    def minimum(self, target):  # immediate
+    def minimum(self, target: Set):  # immediate
         """
         :type target: Dice
         """
@@ -572,11 +671,11 @@ class SetOperator:  # set_op, dice_op
         if selector.cat is not None:
             raise errors.RollValueError(f"{str(selector)} is not a valid selector for minimums.")
         the_min = selector.num
-        for die in target.keptset:
+        for die in self.filter_die(target.keptset):
             if die.number < the_min:
                 die.force_value(the_min)
 
-    def maximum(self, target):  # immediate
+    def maximum(self, target: Set):  # immediate
         """
         :type target: Dice
         """
@@ -584,7 +683,7 @@ class SetOperator:  # set_op, dice_op
         if selector.cat is not None:
             raise errors.RollValueError(f"{str(selector)} is not a valid selector for maximums.")
         the_max = selector.num
-        for die in target.keptset:
+        for die in self.filter_die(target.keptset):
             if die.number > the_max:
                 die.force_value(the_max)
 
@@ -600,7 +699,10 @@ class SetSelector:  # selector
 
     __slots__ = ("cat", "num")
 
-    def __init__(self, cat, num):
+    cat: str | None
+    num: int
+
+    def __init__(self, cat: str | None, num: int):
         """
         :type cat: str or None
         :type num: int
@@ -609,15 +711,15 @@ class SetSelector:  # selector
         self.num = num
 
     @classmethod
-    def from_ast(cls, node):
+    def from_ast(cls, node: ast.SetSelector):
         return cls(node.cat, node.num)
 
-    def select(self, target, max_targets=None):
+    def select(self, target: Set, max_targets: Optional[int] = None) -> set[Number]:
         """
         Selects operands from a target set.
 
         :param target: The source of the operands.
-        :type target: Number
+        :type target: Set
         :param int max_targets: The maximum number of targets to select.
         :return: The targets in the set.
         :rtype: set of Number
@@ -629,19 +731,19 @@ class SetSelector:  # selector
             selected = selected[:max_targets]
         return set(selected)
 
-    def lowestn(self, target):
+    def lowestn(self, target: Set):
         return sorted(target.keptset, key=lambda n: n.total)[: self.num]
 
-    def highestn(self, target):
+    def highestn(self, target: Set):
         return sorted(target.keptset, key=lambda n: n.total, reverse=True)[: self.num]
 
-    def lessthan(self, target):
+    def lessthan(self, target: Set):
         return [n for n in target.keptset if n.total < self.num]
 
-    def morethan(self, target):
+    def morethan(self, target: Set):
         return [n for n in target.keptset if n.total > self.num]
 
-    def literal(self, target):
+    def literal(self, target: Set):
         return [n for n in target.keptset if n.total == self.num]
 
     def __str__(self):
