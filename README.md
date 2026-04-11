@@ -1,13 +1,6 @@
-# d20
+# d20lenny
 
-[![PyPI version shields.io](https://img.shields.io/pypi/v/d20.svg)](https://pypi.python.org/pypi/d20/)
-[![PyPI license](https://img.shields.io/pypi/l/d20.svg)](https://pypi.python.org/pypi/d20/)
-[![PyPI pyversions](https://img.shields.io/pypi/pyversions/d20.svg)](https://pypi.python.org/pypi/d20/)
-![](https://github.com/zhudotexe/d20/workflows/Test%20Package/badge.svg)
-[![codecov](https://codecov.io/gh/zhudotexe/d20/branch/master/graph/badge.svg)](https://codecov.io/gh/zhudotexe/d20)
-[![Documentation Status](https://readthedocs.org/projects/d20/badge/?version=latest)](https://d20.readthedocs.io/en/latest/start.html?badge=latest)
-
-A fast, powerful, and extensible dice engine for D&D, d20 systems, and any other system that needs dice!
+A fast, powerful, and extensible dice engine for D&D, d20 systems, and any other system that needs dice! This is a fork of the [d20 Python library](https://github.com/zhudotexe/d20) to be used with [the Lenny D&D bot](https://github.com/DaFrankort/lenny-dnd-bot).
 
 ## Key Features
 
