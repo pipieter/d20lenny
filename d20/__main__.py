@@ -1,7 +1,16 @@
 from d20 import roll
 
+try:
+    import readline
+except:
+    pass  # readline not found, don't support history
+
 while True:
-    expr = input("> ").strip().lower()
+    try:
+        expr = input("> ").strip().lower()
+    except KeyboardInterrupt:
+        print()
+        break
 
     if expr == "":
         continue
