@@ -2,13 +2,7 @@ import abc
 from collections.abc import Callable, Iterable, Mapping, Sequence
 import random
 
-from typing import Optional, TypedDict
-
-# Prior to 3.12, Unpack was located in typing_extensions rather than typing
-try:
-    from typing import Unpack
-except:
-    from typing_extensions import Unpack
+from typing import Optional
 
 
 from .context import RollContext
@@ -31,11 +25,6 @@ __all__ = (
 
 
 # ===== ast -> expression models =====
-class NumberArgs(TypedDict):
-    kept: bool
-    annotation: Optional[str]
-
-
 class Number(abc.ABC, ast.ChildMixin["Number"]):  # num
     """
     The base class for all expression objects.
@@ -116,11 +105,11 @@ class Expression(Number):
     roll: Number
     comment: Optional[str]
 
-    def __init__(self, roll: Number, comment: Optional[str], **kwargs: Unpack[NumberArgs]):
+    def __init__(self, roll: Number, comment: Optional[str], kept: bool = True, annotation: Optional[str] = None):
         """
         :type roll: Number
         """
-        super().__init__(**kwargs)
+        super().__init__(kept, annotation)
         self.roll = roll
         self.comment = comment
 
@@ -149,16 +138,25 @@ class Literal(Number):
 
     __slots__ = ("values", "exploded")
 
-    values: list[int | float]
+    values: list[int | float]  # history is tracked to support mi/ma op
     exploded: bool
 
-    def __init__(self, value: int | float, **kwargs: Unpack[NumberArgs]):
+    def __init__(
+        self,
+        value: int | float | list[int | float],
+        exploded: bool = False,
+        kept: bool = True,
+        annotation: Optional[str] = None,
+    ):
         """
         :type value: int or float
         """
-        super().__init__(**kwargs)
-        self.values = [value]  # history is tracked to support mi/ma op
-        self.exploded = False
+        super().__init__(kept, annotation)
+        if isinstance(value, list):
+            self.values = value
+        else:
+            self.values = [value]
+        self.exploded = exploded
 
     @property
     def number(self):
@@ -187,6 +185,11 @@ class Literal(Number):
     def __repr__(self):
         return f"<Literal {self.number}>"
 
+    def __neg__(self):
+        copy = Literal(self.values, self.exploded, self.kept, self.annotation)
+        copy.values[-1] *= -1
+        return copy
+
 
 class UnOp(Number):
     """Represents a unary operation."""
@@ -198,12 +201,12 @@ class UnOp(Number):
 
     UNARY_OPS: Mapping[str, Callable[[int | float], int | float]] = {"-": lambda v: -v, "+": lambda v: +v}
 
-    def __init__(self, op: str, value: Number, **kwargs: Unpack[NumberArgs]):
+    def __init__(self, op: str, value: Number, kept: bool = True, annotation: Optional[str] = None):
         """
         :type op: str
         :type value: Number
         """
-        super().__init__(**kwargs)
+        super().__init__(kept, annotation)
         self.op = op
         self.value = value
 
@@ -251,13 +254,13 @@ class BinOp(Number):
         "!=": lambda l, r: int(l != r),
     }
 
-    def __init__(self, left: Number, op: str, right: Number, **kwargs: Unpack[NumberArgs]):
+    def __init__(self, left: Number, op: str, right: Number, kept: bool = True, annotation: Optional[str] = None):
         """
         :type op: str
         :type left: Number
         :type right: Number
         """
-        super().__init__(**kwargs)
+        super().__init__(kept, annotation)
         self.op = op
         self.left = left
         self.right = right
@@ -300,13 +303,14 @@ class Parenthetical(Number):
         self,
         value: Number,
         operations: Optional[list["SetOperator"]] = None,
-        **kwargs: Unpack[NumberArgs],
+        kept: bool = True,
+        annotation: Optional[str] = None,
     ):
         """
         :type value: Number
         :type operations: list[SetOperator]
         """
-        super().__init__(**kwargs)
+        super().__init__(kept, annotation)
         if operations is None:
             operations = []
         self.value = value
@@ -344,13 +348,14 @@ class Set(Number):
         self,
         values: list[Number],
         operations: Optional[list["SetOperator"]] = None,
-        **kwargs: Unpack[NumberArgs],
+        kept: bool = True,
+        annotation: Optional[str] = None,
     ):
         """
         :type values: list[Number]
         :type operations: list[SetOperator]
         """
-        super().__init__(**kwargs)
+        super().__init__(kept, annotation)
         if operations is None:
             operations = []
         self.values = values
@@ -400,7 +405,8 @@ class Dice(Set):
         operations: Optional[list["SetOperator"]] = None,
         context: Optional[RollContext] = None,
         rng: random.Random = rand.random_impl,
-        **kwargs: Unpack[NumberArgs],
+        kept: bool = True,
+        annotation: Optional[str] = None,
     ):
         """
         :type num: int
@@ -410,7 +416,7 @@ class Dice(Set):
         :type context: dice.RollContext
         :type rng: random.Random
         """
-        super().__init__(values, operations, **kwargs)
+        super().__init__(values, operations, kept, annotation)
         self.num = num
         self.size = size
         self._context = context
@@ -423,7 +429,8 @@ class Dice(Set):
         size: int | str,
         context: Optional[RollContext] = None,
         rng: random.Random = rand.random_impl,
-        **kwargs: Unpack[NumberArgs],
+        kept: bool = True,
+        annotation: Optional[str] = None,
     ):
         return cls(
             num,
@@ -431,11 +438,15 @@ class Dice(Set):
             [Die.new(size, context=context, rng=rng) for _ in range(num)],
             context=context,
             rng=rng,
-            **kwargs,
+            kept=kept,
+            annotation=annotation,
         )
 
-    def roll_another(self):
-        self.values.append(Die.new(self.size, context=self._context, rng=self._rng))
+    def roll_another(self, negative: bool = False):
+        die = Die.new(self.size, context=self._context, rng=self._rng)
+        if negative:
+            die = -die
+        self.values.append(die)
 
     @property
     def children(self) -> list[Number]:
@@ -537,6 +548,14 @@ class Die(Number):  # part of diceexpr
     def __repr__(self):
         return f"<Die size={self.size} values={self.values}>"
 
+    def __neg__(self):
+        copy = Die(self.size, self.values, self._context, self._rng)
+        copy.values = [-value for value in copy.values]
+        return copy
+
+    def set_child(self, index: int, value: Number) -> None:
+        raise NotImplementedError
+
 
 # noinspection PyUnresolvedReferences
 # selecting on Dice will always return Die
@@ -598,6 +617,7 @@ class SetOperator:  # set_op, dice_op
             "rr": self.reroll,
             "ro": self.reroll_once,
             "ra": self.explode_once,
+            "rs": self.reroll_and_subtract,
             "e": self.explode,
             "mi": self.minimum,
             "ma": self.maximum,
@@ -670,6 +690,14 @@ class SetOperator:  # set_op, dice_op
         for die in self.filter_die(self.select(target, max_targets=1)):
             die.explode()
             target.roll_another()
+
+    def reroll_and_subtract(self, target: Set):
+        if not isinstance(target, Dice):
+            return
+
+        for die in self.filter_die(self.select(target, max_targets=1)):
+            die.explode()
+            target.roll_another(negative=True)
 
     def minimum(self, target: Set):  # immediate
         """
