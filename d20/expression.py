@@ -1,6 +1,5 @@
 import abc
 from collections.abc import Callable, Iterable, Mapping, Sequence
-import copy
 import random
 
 from typing import Optional
@@ -139,16 +138,25 @@ class Literal(Number):
 
     __slots__ = ("values", "exploded")
 
-    values: list[int | float]
+    values: list[int | float]  # history is tracked to support mi/ma op
     exploded: bool
 
-    def __init__(self, value: int | float, kept: bool = True, annotation: Optional[str] = None):
+    def __init__(
+        self,
+        value: int | float | list[int | float],
+        exploded: bool = False,
+        kept: bool = True,
+        annotation: Optional[str] = None,
+    ):
         """
         :type value: int or float
         """
         super().__init__(kept, annotation)
-        self.values = [value]  # history is tracked to support mi/ma op
-        self.exploded = False
+        if isinstance(value, list):
+            self.values = value
+        else:
+            self.values = [value]
+        self.exploded = exploded
 
     @property
     def number(self):
@@ -178,9 +186,9 @@ class Literal(Number):
         return f"<Literal {self.number}>"
 
     def __neg__(self):
-        clone = copy.deepcopy(self)
-        clone.values[-1] *= -1
-        return clone
+        copy = Literal(self.values, self.exploded, self.kept, self.annotation)
+        copy.values[-1] *= -1
+        return copy
 
 
 class UnOp(Number):
@@ -541,9 +549,12 @@ class Die(Number):  # part of diceexpr
         return f"<Die size={self.size} values={self.values}>"
 
     def __neg__(self):
-        clone = copy.deepcopy(self)
-        clone.values = [-value for value in clone.values]
-        return clone
+        copy = Die(self.size, self.values, self._context, self._rng)
+        copy.values = [-value for value in copy.values]
+        return copy
+
+    def set_child(self, index: int, value: Number) -> None:
+        raise NotImplementedError
 
 
 # noinspection PyUnresolvedReferences
