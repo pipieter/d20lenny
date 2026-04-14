@@ -42,7 +42,7 @@ comma: ","
 ?dice: diceexpr dice_op*
 
 dice_op: (DICE_OPERATOR | SET_OPERATOR) selector
-DICE_OPERATOR: "rr" | "ro" | "ra" | "e" | "mi" | "ma"
+DICE_OPERATOR: "rr" | "ro" | "ra" | "e" | "mi" | "ma" | "rs"
 
 diceexpr: INTEGER? "d" DICE_VALUE
 

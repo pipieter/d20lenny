@@ -1,5 +1,6 @@
 import abc
 from collections.abc import Callable, Iterable, Mapping, Sequence
+import copy
 import random
 
 from typing import Optional, TypedDict
@@ -186,6 +187,11 @@ class Literal(Number):
 
     def __repr__(self):
         return f"<Literal {self.number}>"
+
+    def __neg__(self):
+        clone = copy.deepcopy(self)
+        clone.values[-1] *= -1
+        return clone
 
 
 class UnOp(Number):
@@ -434,8 +440,11 @@ class Dice(Set):
             **kwargs,
         )
 
-    def roll_another(self):
-        self.values.append(Die.new(self.size, context=self._context, rng=self._rng))
+    def roll_another(self, negative: bool = False):
+        die = Die.new(self.size, context=self._context, rng=self._rng)
+        if negative:
+            die = -die
+        self.values.append(die)
 
     @property
     def children(self) -> list[Number]:
@@ -537,6 +546,11 @@ class Die(Number):  # part of diceexpr
     def __repr__(self):
         return f"<Die size={self.size} values={self.values}>"
 
+    def __neg__(self):
+        clone = copy.deepcopy(self)
+        clone.values = [-value for value in clone.values]
+        return clone
+
 
 # noinspection PyUnresolvedReferences
 # selecting on Dice will always return Die
@@ -598,6 +612,7 @@ class SetOperator:  # set_op, dice_op
             "rr": self.reroll,
             "ro": self.reroll_once,
             "ra": self.explode_once,
+            "rs": self.reroll_and_subtract,
             "e": self.explode,
             "mi": self.minimum,
             "ma": self.maximum,
@@ -670,6 +685,14 @@ class SetOperator:  # set_op, dice_op
         for die in self.filter_die(self.select(target, max_targets=1)):
             die.explode()
             target.roll_another()
+
+    def reroll_and_subtract(self, target: Set):
+        if not isinstance(target, Dice):
+            return
+
+        for die in self.filter_die(self.select(target, max_targets=1)):
+            die.explode()
+            target.roll_another(negative=True)
 
     def minimum(self, target: Set):  # immediate
         """
