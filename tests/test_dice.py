@@ -16,7 +16,7 @@ STANDARD_EXPRESSIONS = [
 ]
 
 
-def r(e):
+def r(e: str):
     return roll(e).total  # I'm tired of typing roll a bunch of times
 
 
@@ -224,6 +224,13 @@ def test_ma_op():
     assert r("10d6ma1") == 10
     assert r("10d6ma0") == 0
     assert 10 <= r("10d6ma5") <= 50
+
+
+@pytest.mark.parametrize("iterations", [1000])
+def test_rs_op(iterations: int):
+    for _ in range(iterations):
+        assert -4 < r("1d4rs<5") < 4
+        assert 1 <= r("1d4rs0") <= 4
 
 
 # modifying the tree directly
