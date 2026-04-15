@@ -233,6 +233,12 @@ def test_rs_op(iterations: int):
         assert 1 <= r("1d4rs0") <= 4
 
 
+@pytest.mark.parametrize("iterations", [1000])
+def test_red_op(iterations: int):
+    for _ in range(iterations):
+        assert -4 < r("1d4red") <= 8
+
+
 # modifying the tree directly
 def test_correct_results():
     result = roll("1+2+3")
