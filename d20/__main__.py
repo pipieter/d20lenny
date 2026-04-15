@@ -22,5 +22,5 @@ while True:
     try:
         roll_result = roll(expr, allow_comments=True)
         print(str(roll_result))
-    except:
-        print(f"Could not parse '{expr}'")
+    except Exception as e:
+        print(f"Could not parse '{expr}': {str(e)}")
