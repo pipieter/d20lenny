@@ -332,6 +332,8 @@ class SetOperator:  # set_op, dice_op
         self.sels.extend(sels)
 
     def __str__(self):
+        if len(self.sels) == 0:
+            return self.op
         return "".join([f"{self.op}{str(sel)}" for sel in self.sels])
 
 
