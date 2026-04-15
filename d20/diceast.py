@@ -321,8 +321,12 @@ class SetOperator:  # set_op, dice_op
         self.sels = sels
 
     @classmethod
-    def new(cls, op: str | Token, sel: "SetSelector"):
-        return cls(op, [sel])
+    def new(cls, op: str | Token, sel: "SetSelector | None" = None):
+        if sel is None:
+            sels = []
+        else:
+            sels = [sel]
+        return cls(op, sels)
 
     def add_sels(self, sels: list["SetSelector"]):
         self.sels.extend(sels)

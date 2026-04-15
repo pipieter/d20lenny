@@ -611,6 +611,7 @@ class SetOperator:  # set_op, dice_op
         :type target: Set
         """
         operations: Mapping[str, Callable[[Set], None]] = {
+            # set only
             "k": self.keep,
             "p": self.drop,
             # dice only
@@ -621,6 +622,8 @@ class SetOperator:  # set_op, dice_op
             "e": self.explode,
             "mi": self.minimum,
             "ma": self.maximum,
+            # expr only
+            "red": self.explode_red,
         }
 
         operations[self.op](target)
@@ -698,6 +701,20 @@ class SetOperator:  # set_op, dice_op
         for die in self.filter_die(self.select(target, max_targets=1)):
             die.explode()
             target.roll_another(negative=True)
+
+    def explode_red(self, target: Set):
+        if not isinstance(target, Dice):
+            return
+
+        if not isinstance(target.size, int):
+            raise errors.RollValueError(f"{str(target.size)} is not a dice value for red.")
+
+        # Red is equivalent to rs1raN where N is the maximum value
+        rs = SetOperator("rs", [SetSelector(None, 1)])
+        ra = SetOperator("ra", [SetSelector(None, target.size)])
+
+        ra.operate(target)
+        rs.operate(target)
 
     def minimum(self, target: Set):  # immediate
         """

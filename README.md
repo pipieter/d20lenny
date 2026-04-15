@@ -70,7 +70,7 @@ These operations can be performed on dice and sets.
 
 #### Operators
 
-Operators are always followed by a selector, and operate on the items in the set that match the selector.
+Most operators are always followed by a selector, and operate on the items in the set that match the selector.
 
 | Syntax | Name                | Description                                                                              |
 | ------ | ------------------- | ---------------------------------------------------------------------------------------- |
@@ -83,6 +83,12 @@ Operators are always followed by a selector, and operate on the items in the set
 | e      | explode on          | Rolls another die for each matched value. (Dice only)                                    |
 | mi     | minimum             | Sets the minimum value of each die. (Dice only)                                          |
 | ma     | maximum             | Sets the maximum value of each die. (Dice only)                                          |
+
+Some operators are shorthands for other operators. These don't require selectors.
+
+| Syntax | Name         | Description                                                   |
+| ------ | ------------ | ------------------------------------------------------------- |
+| red    | RED critical | Equivalent to rs1raN where N is the maximum value of the dice |
 
 #### Selectors
 
