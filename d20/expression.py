@@ -709,12 +709,14 @@ class SetOperator:  # set_op, dice_op
         if not isinstance(target.size, int):
             raise errors.RollValueError(f"{str(target.size)} is not a dice value for red.")
 
-        # Red is equivalent to rs1raN where N is the maximum value
-        rs = SetOperator("rs", [SetSelector(None, 1)])
-        ra = SetOperator("ra", [SetSelector(None, target.size)])
+        rolled_values = [value.total for value in target.values]
+        rs_count = rolled_values.count(1)
+        ra_count = rolled_values.count(target.size)
 
-        ra.operate(target)
-        rs.operate(target)
+        if ra_count > 0:
+            target.roll_another(negative=False)
+        if rs_count > 0:
+            target.roll_another(negative=True)
 
     def minimum(self, target: Set):  # immediate
         """
