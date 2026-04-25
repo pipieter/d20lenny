@@ -1,7 +1,7 @@
 import random
+import typing
 from enum import IntEnum
 from typing import Any, Callable, Mapping, MutableMapping, Optional, Type, Union
-import typing
 
 import cachetools
 import lark
