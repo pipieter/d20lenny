@@ -3,9 +3,12 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "d20"
-version = "1.1.2"
-authors = [{ name = "Andrew Zhu", email = "andrew@zhu.codes" }]
+name = "d20lenny"
+version = "0.0.1"
+authors = [
+    { name = "Andrew Zhu", email = "andrew@zhu.codes" },
+    { name = "Pim Pieters", email = "pim@pieters.tv" },
+]
 description = "A formal grammar-based dice parser and roller for D&D and other dice systems."
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -15,7 +18,7 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     # https://pypi.org/classifiers/
-    "Development Status :: 5 - Production/Stable",
+    "Development Status :: 3 - Alpha",
     "Topic :: Games/Entertainment :: Board Games",
     "Topic :: Games/Entertainment :: Role-Playing",
 ]
@@ -26,8 +29,8 @@ dependencies = [
 ]
 
 [project.urls]
-"Homepage" = "https://github.com/zhudotexe/d20"
-"Bug Tracker" = "https://github.com/zhudotexe/d20/issues"
+"Homepage" = "https://github.com/pipieter/d20lenny"
+"Bug Tracker" = "https://github.com/pipieter/d20lenny/issues"
 
 [tool.black]
 line-length = 120
@@ -44,6 +47,6 @@ reverse_relative = true
 combine_as_imports = true
 
 [tool.pyright]
-include = ["d20"]
-exclude = ["**/__pycache__", "./testparser.py"]
+include = ["d20", "tests"]
+exclude = ["**/__pycache__", "./testparser.py", "./tests/custom_strategies.py"]
 typeCheckingMode = "strict"

@@ -1,28 +1,49 @@
 name: Code Style
 
 on:
-  [ push, pull_request ]
+  pull_request:
+    branches: [main]
+    paths:
+      - "**/*.py"
+      - "pyproject.toml"
+  workflow_dispatch:
 
 jobs:
-  build:
+  black-lint:
     runs-on: ubuntu-latest
-
+    name: black
     steps:
-      - uses: actions/checkout@v3
+      - name: Check out source repository
+        uses: actions/checkout@v4
 
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v4
+      - name: Install Black
+        run: pip install black
+
+      - name: Black linter
+        uses: psf/black@stable
         with:
-          python-version: "3.11"
+          options: "--check --verbose d20 tests"
 
-      - name: Install deps
-        run: pip install black isort pyright
+  pyright:
+    runs-on: ubuntu-latest
+    name: pyright
+    steps:
+      - name: Check out source repository
+        uses: actions/checkout@v4
 
-      - name: Ensure code is blackified
-        run: black . --check --diff
+      - uses: ./.github/actions/setup
 
-      - name: Ensure imports are sorted
-        run: isort . --check --diff
+      - name: pyright
+        uses: jakebailey/pyright-action@v2
 
-      - name: Ensure pyright is happy
-        uses: pyright d20
+  isort:
+    runs-on: ubuntu-latest
+    name: isort
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup
+
+      - uses: isort/isort-action@master
+        with:
+          requirementsFiles: "requirements.txt tests/requirements.txt"

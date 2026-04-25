@@ -1,4 +1,4 @@
-from . import diceast as ast, rand, utils # type: ignore
+from . import diceast as ast, rand, utils  # type: ignore
 from .dice import *
 from .errors import *
 from .expression import *
@@ -8,3 +8,7 @@ from .stringifiers import *
 _roller = Roller()
 roll = _roller.roll
 parse = _roller.parse
+
+
+def seed(s: int | float | str | bytes | bytearray | None = None):
+    _roller.rng.seed(s)

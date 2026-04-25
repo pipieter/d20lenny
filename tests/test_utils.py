@@ -90,7 +90,7 @@ class TestTreeMap:
     def test_ast_map(self):
         tree = parse("1d20 + 4d6 + 3")
 
-        def mapper(node):
+        def mapper(node: ast.Node):
             if isinstance(node, ast.Dice):
                 node.num = node.num * 2
             return node
@@ -104,7 +104,7 @@ class TestTreeMap:
     def test_expr_map(self):
         expr = roll("1 + 2 + 3").expr
 
-        def mapper(node):
+        def mapper(node: expression.Expression):
             if isinstance(node, Literal):
                 copied_values = node.values.copy()
                 copied_values[-1] *= 2
@@ -121,7 +121,7 @@ class TestTreeMap:
     def test_ast_map_set_copy(self):  # avrae/avrae#1537
         tree = parse("(1d6, 1d6)kh1")
 
-        def mapper(node):
+        def mapper(node: ast.Node):
             if isinstance(node, ast.Dice):
                 return ast.Dice(node.num * 2, node.size)
             return node
@@ -135,7 +135,7 @@ class TestTreeMap:
     def test_expr_map_set_copy(self):
         expr = roll("(1, 2, 3)").expr
 
-        def mapper(node):
+        def mapper(node: expression.Expression):
             if isinstance(node, Literal):
                 copied_values = node.values.copy()
                 copied_values[-1] *= 2
@@ -152,7 +152,7 @@ class TestTreeMap:
     def test_expr_map_types(self):
         expr = roll("(1, 2, 3) + (4, 5, 6)").expr
 
-        def mapper(node):
+        def mapper(node: expression.Number):
             if isinstance(node, Set):
                 return Literal(int(node))
             return node
@@ -185,4 +185,5 @@ def test_dfs():
     mixed = roll("-1d8 + 4 - (3, 1d4)kh1")
     result = utils.dfs(mixed.expr, lambda node: isinstance(node, Dice) and node.num == 1 and node.size == 4)
 
+    assert result is not None
     assert SimpleStringifier().stringify(result).startswith("1d4 ")

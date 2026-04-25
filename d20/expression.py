@@ -1,13 +1,10 @@
 import abc
-from collections.abc import Callable, Iterable, Mapping, Sequence
 import random
-
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from typing import Optional
 
-
-from .context import RollContext
-
 from . import diceast as ast, errors, rand
+from .context import RollContext
 
 __all__ = (
     "Number",

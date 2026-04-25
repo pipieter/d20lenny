@@ -1,7 +1,7 @@
 from d20 import roll
 
 try:
-    import readline
+    import readline  # type: ignore
 except:
     pass  # readline not found, don't support history
 
