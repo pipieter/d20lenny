@@ -38,11 +38,6 @@ Dice
 
         The string result of the roll. Equivalent to ``stringifier.stringify(self.expr)``.
 
-    .. attribute:: comment
-        :type: str or None
-
-        If ``allow_comments`` was True and a comment was found, the comment. Otherwise, None.
-
 .. autoclass:: d20.RollContext
     :members:
 

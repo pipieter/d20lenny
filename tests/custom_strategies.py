@@ -12,13 +12,6 @@ def expr(draw):
 
 
 @st.composite
-def commented_expr(draw):
-    a = draw(num())
-    b = draw(st.just("") | term_comment)
-    return a + b
-
-
-@st.composite
 def num(draw):
     return draw(comparison())
 
@@ -137,7 +130,6 @@ def annotation(draw):
 term_annotation = annotation()
 
 # terminals
-term_comment = st.text().map(lambda t: " " + t)  # any string starting w/ a space
 term_comp_operator = st.sampled_from(("==", ">=", "<=", "!=", "<", ">"))
 term_a_op = st.sampled_from("+-")
 term_m_op = st.sampled_from(("*", "//", "/", "%"))

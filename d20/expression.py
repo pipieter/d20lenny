@@ -97,18 +97,16 @@ class Number(abc.ABC, ast.ChildMixin["Number"]):  # num
 class Expression(Number):
     """Expressions are usually the root of all Number trees."""
 
-    __slots__ = ("roll", "comment")
+    __slots__ = "roll"
 
     roll: Number
-    comment: Optional[str]
 
-    def __init__(self, roll: Number, comment: Optional[str], kept: bool = True, annotation: Optional[str] = None):
+    def __init__(self, roll: Number, kept: bool = True, annotation: Optional[str] = None):
         """
         :type roll: Number
         """
         super().__init__(kept, annotation)
         self.roll = roll
-        self.comment = comment
 
     @property
     def number(self):
@@ -127,7 +125,7 @@ class Expression(Number):
         self.roll = value
 
     def __repr__(self):
-        return f"<Expression roll={self.roll} comment={self.comment}>"
+        return f"<Expression roll={self.roll}>"
 
 
 class Literal(Number):

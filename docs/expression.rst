@@ -44,11 +44,6 @@ for the Expression object returned by ``parse(...)``, check out :ref:`Abstract S
 
         The roll of this expression.
 
-    .. attribute:: comment
-        :type: Optional[str]
-
-        The comment of this expression.
-
 .. autoclass:: d20.Literal
     :show-inheritance:
 

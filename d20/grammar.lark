@@ -1,11 +1,6 @@
 // Dice rolling grammar - Avrae spec
 
 expr: num
-commented_expr: num COMMENT?
-// ^ starting node for commented rolls
-
-// comments are given -1 priority - only match comment if no other possibilities
-COMMENT.-1: _WS? /.+/
 
 // math and operators, PMDAS
 ?num: comparison

@@ -182,38 +182,6 @@ Then, simply pass an instance of your stringifier into the `roll()` function!
 'The result of the roll 4d6e6kh3 (X, 5, 6!, 6!, X, X) was 17'
 ```
 
-## Annotations and Comments
-
-Each dice node supports value annotations - i.e., a method to "tag" parts of a roll with some indicator. For example,
-
-```pycon
->>> from d20 import roll
->>> str(roll("3d6 [fire] + 1d4 [piercing]"))
-'3d6 (3, 2, 2) [fire] + 1d4 (3) [piercing] = `10`'
-
->>> str(roll("-(1d8 + 3) [healing]"))
-'-(1d8 (7) + 3) [healing] = `-10`'
-
->>> str(roll("(1 [one], 2 [two], 3 [three])"))
-'(1 [one], 2 [two], 3 [three]) = `6`'
-```
-
-are all examples of valid annotations. Annotations are purely visual and do not affect the evaluation of the roll by
-default.
-
-Additionally, when `allow_comments=True` is passed to `roll()`, the result of the roll may have a comment:
-
-```pycon
->>> from d20 import roll
->>> result = roll("1d20 I rolled a d20", allow_comments=True)
->>> str(result)
-'1d20 (13) = `13`'
->>> result.comment
-'I rolled a d20'
-```
-
-Note that while `allow_comments` is enabled, AST caching is disabled, which may lead to slightly worse performance.
-
 ## Traversing Dice Results
 
 The raw results of dice rolls are returned in [`Expression`](https://github.com/avrae/d20/blob/master/d20/models.py#L76)
@@ -225,7 +193,7 @@ objects, which can be accessed as such:
 >>> str(result)
 '3d6 (4, **6**, **6**) + 1d4 (**1**) + 3 = `20`'
 >>> result.expr
-<Expression roll=<BinOp left=<BinOp left=<Dice num=3 size=6 values=[<Die size=6 values=[<Literal 4>]>, <Die size=6 values=[<Literal 6>]>, <Die size=6 values=[<Literal 6>]>] operations=[]> op=+ right=<Dice num=1 size=4 values=[<Die size=4 values=[<Literal 1>]>] operations=[]>> op=+ right=<Literal 3>> comment=None>
+<Expression roll=<BinOp left=<BinOp left=<Dice num=3 size=6 values=[<Die size=6 values=[<Literal 4>]>, <Die size=6 values=[<Literal 6>]>, <Die size=6 values=[<Literal 6>]>] operations=[]> op=+ right=<Dice num=1 size=4 values=[<Die size=4 values=[<Literal 1>]>] operations=[]>> op=+ right=<Literal 3>>>
 ```
 
 or, in a easier-to-read format,
@@ -257,7 +225,6 @@ or, in a easier-to-read format,
         op=+
         right=<Literal 3>
     >
-    comment=None
 >
 ```
 
@@ -313,8 +280,7 @@ more common to look for the dice, and not each individual component of that dice
 
 ## Performance
 
-By default, the parser caches the 256 most frequently used dice expressions in an LFU cache, allowing for a significant
-speedup when rolling many of the same kinds of rolls. This caching is disabled when `allow_comments` is True.
+By default, the parser caches the 256 most frequently used dice expressions in an LFU cache, allowing for a significant speedup when rolling many of the same kinds of rolls.
 
 With caching:
 
