@@ -48,5 +48,5 @@ combine_as_imports = true
 
 [tool.pyright]
 include = ["d20", "tests"]
-exclude = ["**/__pycache__", "./testparser.py"]
+exclude = ["**/__pycache__", "./testparser.py", "./tests/custom_strategies.py"]
 typeCheckingMode = "strict"
