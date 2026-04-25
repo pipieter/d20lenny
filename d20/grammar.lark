@@ -18,9 +18,7 @@ M_OP: "*" | "//" | "/" | "%"
 U_OP: "+" | "-"
 
 // numbers
-?numexpr: (dice | set | literal) _WS? ANNOTATION*
-
-ANNOTATION: /\[.*?\]/ _WS?
+?numexpr: (dice | set | literal)
 
 literal: INTEGER | DECIMAL
 
