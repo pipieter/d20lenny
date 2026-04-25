@@ -44,6 +44,6 @@ reverse_relative = true
 combine_as_imports = true
 
 [tool.pyright]
-include = ["d20"]
+include = ["d20", "tests"]
 exclude = ["**/__pycache__", "./testparser.py"]
 typeCheckingMode = "strict"

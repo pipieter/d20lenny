@@ -35,8 +35,6 @@ jobs:
 
       - name: pyright
         uses: jakebailey/pyright-action@v2
-        with:
-          options: "d20 tests"
 
   isort:
     runs-on: ubuntu-latest
