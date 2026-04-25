@@ -467,9 +467,7 @@ class Dice(Node):  # diceexpr
 
 with open(os.path.join(os.path.dirname(__file__), "grammar.lark")) as f:
     grammar = f.read()
-parser = Lark(
-    grammar, start=["expr"], parser="lalr", transformer=RollTransformer(), maybe_placeholders=True
-)
+parser = Lark(grammar, start=["expr"], parser="lalr", transformer=RollTransformer(), maybe_placeholders=True)
 
 if __name__ == "__main__":
     while True:
