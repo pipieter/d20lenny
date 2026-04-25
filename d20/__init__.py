@@ -8,3 +8,7 @@ from .stringifiers import *
 _roller = Roller()
 roll = _roller.roll
 parse = _roller.parse
+
+
+def seed(s: int | float | str | bytes | bytearray | None = None):
+    _roller.rng.seed(s)
