@@ -34,11 +34,6 @@ for the Expression object returned by ``roll(...)expr``, check out :ref:`Express
 
         The subtree representing the expression's roll.
 
-    .. attribute:: comment
-        :type: Optional[str]
-
-        The comment of this expression.
-
 .. autoclass:: d20.ast.AnnotatedNumber
     :show-inheritance:
 

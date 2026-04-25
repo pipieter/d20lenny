@@ -1,6 +1,6 @@
 import abc
 import os
-from typing import Any, Generic, Optional, TypeVar
+from typing import Any, Generic, TypeVar
 
 from lark import Lark, Token, Transformer
 
@@ -13,9 +13,6 @@ class RollTransformer(Transformer[Any, Any]):
 
     def expr(self, num: Any):
         return Expression(*num)
-
-    def commented_expr(self, numcomment: Any):
-        return Expression(*numcomment)
 
     def comparison(self, binop: Any):
         return BinOp(*binop)
@@ -142,14 +139,12 @@ class Node(abc.ABC, ChildMixin["Node"]):
 class Expression(Node):  # expr
     """Expressions are usually the root of all ASTs."""
 
-    __slots__ = ("roll", "comment")
+    __slots__ = "roll"
 
     roll: Node
-    comment: Optional[str]
 
-    def __init__(self, roll: Node, comment: Optional[str] = None):
+    def __init__(self, roll: Node):
         self.roll = roll
-        self.comment = str(comment) if comment is not None else None
 
     @property
     def children(self):
@@ -160,8 +155,6 @@ class Expression(Node):  # expr
         self.roll = value
 
     def __str__(self):
-        if self.comment:
-            return f"{str(self.roll)} {self.comment}"
         return str(self.roll)
 
 
@@ -475,12 +468,12 @@ class Dice(Node):  # diceexpr
 with open(os.path.join(os.path.dirname(__file__), "grammar.lark")) as f:
     grammar = f.read()
 parser = Lark(
-    grammar, start=["expr", "commented_expr"], parser="lalr", transformer=RollTransformer(), maybe_placeholders=True
+    grammar, start=["expr"], parser="lalr", transformer=RollTransformer(), maybe_placeholders=True
 )
 
 if __name__ == "__main__":
     while True:
-        parser = Lark(grammar, start=["expr", "commented_expr"], parser="lalr", maybe_placeholders=True)
+        parser = Lark(grammar, start=["expr"], parser="lalr", maybe_placeholders=True)
         result = parser.parse(input("> "), start="expr")  # type: ignore
         print(result.pretty())
         print(result)

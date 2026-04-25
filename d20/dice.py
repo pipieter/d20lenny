@@ -14,10 +14,6 @@ from .stringifiers import MarkdownStringifier, Stringifier
 
 __all__ = ("CritType", "AdvType", "RollResult", "Roller")
 
-POSSIBLE_COMMENT_AMBIGUITIES = {
-    "*",
-}
-
 
 class CritType(IntEnum):
     """
@@ -53,7 +49,6 @@ class RollResult:
         self.ast = the_ast
         self.expr = the_roll
         self.stringifier = stringifier
-        self.comment = the_roll.comment
 
     @property
     def total(self) -> int:
@@ -132,7 +127,6 @@ class Roller:
         self,
         expr: Union[str, ast.Node],
         stringifier: Optional[Stringifier] = None,
-        allow_comments: bool = False,
         advantage: AdvType = AdvType.NONE,
     ) -> RollResult:
         """
@@ -142,7 +136,6 @@ class Roller:
         :type expr: str or ast.Node
         :param stringifier: The stringifier to stringify the result. Defaults to MarkdownStringifier.
         :type stringifier: d20.Stringifier
-        :param bool allow_comments: Whether to parse for comments after the main roll expression (potential slowdown)
         :param AdvType advantage: If the roll should be made at advantage. Only applies if the leftmost node is 1d20.
         :rtype: RollResult
         """
@@ -152,7 +145,7 @@ class Roller:
         self.context.reset()
 
         if isinstance(expr, str):  # is this a preparsed tree?
-            dice_tree = self.parse(expr, allow_comments)
+            dice_tree = self.parse(expr)
         else:
             dice_tree = expr
 
@@ -164,58 +157,30 @@ class Roller:
         return RollResult(dice_tree, dice_expr, stringifier)
 
     # parsers
-    def parse(self, expr: str, allow_comments: bool = False) -> ast.Expression:
+    def parse(self, expr: str) -> ast.Expression:
         """
         Parses a dice expression into an AST.
 
         :param expr: The dice to roll.
         :type expr: str
-        :param bool allow_comments: Whether to parse for comments after the main roll expression (potential slowdown)
         :rtype: ast.Expression
         """
         try:
-            if not allow_comments:
-                return self._parse_no_comment(expr)
+            # see if this expr is in cache
+            clean_expr = expr.replace(" ", "")
+            if clean_expr in self._parse_cache:
+                dice_tree = self._parse_cache[clean_expr]
+                dice_tree = typing.cast(ast.Expression, dice_tree)
             else:
-                return self._parse_with_comments(expr)
+                dice_tree = ast.parser.parse(expr, start="expr")  # type: ignore
+                dice_tree = typing.cast(ast.Node, dice_tree)
+                self._parse_cache[clean_expr] = dice_tree
+                dice_tree = typing.cast(ast.Expression, dice_tree)
+            return dice_tree
         except lark.UnexpectedToken as ut:
             raise RollSyntaxError(ut.line, ut.column, ut.token, ut.expected)
         except lark.UnexpectedCharacters as uc:
             raise RollSyntaxError(uc.line, uc.column, expr[uc.pos_in_stream], uc.allowed)
-
-    def _parse_no_comment(self, expr: str) -> ast.Expression:
-        # see if this expr is in cache
-        clean_expr = expr.replace(" ", "")
-        if clean_expr in self._parse_cache:
-            dice_tree = self._parse_cache[clean_expr]
-            dice_tree = typing.cast(ast.Expression, dice_tree)
-        else:
-            dice_tree = ast.parser.parse(expr, start="expr")  # type: ignore
-            dice_tree = typing.cast(ast.Node, dice_tree)
-            self._parse_cache[clean_expr] = dice_tree
-            dice_tree = typing.cast(ast.Expression, dice_tree)
-        return dice_tree
-
-    def _parse_with_comments(self, expr: str) -> ast.Expression:
-        try:
-            dice_tree = ast.parser.parse(expr, start="commented_expr")  # type: ignore
-            dice_tree = typing.cast(ast.Expression, dice_tree)
-            return dice_tree
-        except lark.UnexpectedInput as ui:
-            # if the statement up to the unexpected token ends with an operator, remove that from the end
-            successful_fragment = expr[: ui.pos_in_stream]
-            for op in POSSIBLE_COMMENT_AMBIGUITIES:
-                if successful_fragment.endswith(op):
-                    successful_fragment = successful_fragment[: -len(op)]
-                    force_comment = expr[len(successful_fragment) :]
-                    break
-            else:
-                raise
-            # and parse again (handles edge cases like "1d20 keep the dragon grappled")
-            dice_tree = ast.parser.parse(successful_fragment, start="commented_expr")  # type: ignore
-            dice_tree = typing.cast(ast.Expression, dice_tree)
-            dice_tree.comment = force_comment
-            return dice_tree
 
     # evaluator
     def _eval(self, node: ast.Node) -> Number:
@@ -225,7 +190,7 @@ class Roller:
         return handler(node)
 
     def _eval_expression(self, node: ast.Expression) -> Expression:
-        return Expression(self._eval(node.roll), node.comment, kept=True, annotation=None)
+        return Expression(self._eval(node.roll), kept=True, annotation=None)
 
     def _eval_annotatednumber(self, node: ast.AnnotatedNumber) -> Number:
         target = self._eval(node.value)
