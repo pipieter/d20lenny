@@ -1,19 +1,21 @@
+import random
+
 from .common import AdvType
 
 from . import diceast as ast
 
-from .errors import TooManyRolls
+from .errors import RollValueError, TooManyRolls
 
 __all__ = ("RollContext",)
 
 
 class Context:
-    expr: ast.Expression
+    expr: ast.Node
     advantage: AdvType
 
     d20: ast.Dice | ast.OperatedDice | None
 
-    def __init__(self, expr: ast.Expression, advantage: AdvType) -> None:
+    def __init__(self, expr: ast.Node, advantage: AdvType) -> None:
         self.expr = expr
         self.advantage = advantage
 
@@ -72,20 +74,17 @@ class Context:
         raise NotImplementedError(f"_find_d20 not implemented for {type(node)}")
 
 
-class RollContext:
+class RollContext(Context):
     """
     A class to track information about rolls to ensure all rolls halt eventually.
 
     To use this class, pass an instance to the constructor of :class:`d20.Roller`.
     """
 
-    def __init__(self, max_rolls: int = 1000):
+    def __init__(self, expr: ast.Node, advantage: AdvType, rng: random.Random, max_rolls: int = 1000):
+        super().__init__(expr, advantage)
+        self.rng = rng
         self.max_rolls = max_rolls
-        self.rolls = 0
-        self.reset()
-
-    def reset(self):
-        """Called at the start of each new roll."""
         self.rolls = 0
 
     def count_roll(self, n: int = 1):
@@ -98,3 +97,13 @@ class RollContext:
         self.rolls += n
         if self.rolls > self.max_rolls:
             raise TooManyRolls("Too many dice rolled.")
+
+    def roll(self, size: ast.DiceSize) -> int:
+        if size == 0:
+            raise RollValueError("Cannot roll zero-sided die.")
+
+        self.count_roll(1)
+        if size == "%":
+            return self.rng.randrange(10) * 10
+        else:
+            return self.rng.randrange(size) + 1
