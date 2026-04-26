@@ -54,10 +54,10 @@ def ast_adv_copy(ast: diceast.Node, advtype: AdvType) -> diceast.Node:
 
     # add the kh1 operator
     if advtype == 1:
-        high_or_low = diceast.SetSelector("h", 1)
+        high_or_low = diceast.Selector("h", 1)
     else:
-        high_or_low = diceast.SetSelector("l", 1)
-    kh1 = diceast.SetOperator("k", [high_or_low])
+        high_or_low = diceast.Selector("l", 1)
+    kh1 = diceast.Operator("k", [high_or_low])
     parent.operations.insert(0, kh1)
 
     return root

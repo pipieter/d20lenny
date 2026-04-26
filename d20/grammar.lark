@@ -14,31 +14,25 @@ A_OP: "+" | "-"
 ?m_num: (m_num M_OP _WS?)? u_num _WS?
 M_OP: "*" | "//" | "/" | "%"
 
-?u_num: numexpr | U_OP _WS? u_num
+?u_num: num_expr | U_OP _WS? u_num
 U_OP: "+" | "-"
 
 // numbers
-?numexpr: (dice | set | literal)
+?num_expr: (parenthetical | dice | literal)
 
 literal: INTEGER | DECIMAL
 
-// sets
-?set: setexpr set_op*
-
-set_op: SET_OPERATOR selector
-SET_OPERATOR: "k" | "p"
-
-setexpr: "(" _WS? (num (_WS? "," _WS? num)* _WS? comma? _WS?)? _WS? ")"
-comma: ","
+parenthetical: "(" _WS? num _WS? ")" dice_op*
 
 // dice
-?dice: diceexpr dice_op*
+?dice: dice_expr dice_op*
 
 dice_op: ((DICE_OPERATOR | SET_OPERATOR) selector) | EXPRESSION_OPERATOR
+SET_OPERATOR: "k" | "p"
 DICE_OPERATOR: "rr" | "ro" | "ra" | "e" | "mi" | "ma" | "rs"
 EXPRESSION_OPERATOR: "red"
 
-diceexpr: INTEGER? "d" DICE_VALUE
+dice_expr: INTEGER? "d" DICE_VALUE
 
 DICE_VALUE: INTEGER | "%"
 

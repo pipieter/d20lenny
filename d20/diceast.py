@@ -1,7 +1,7 @@
 import abc
 import os
 import typing
-from collections.abc import MutableMapping
+from collections.abc import MutableMapping, Sequence
 from typing import Any, Generic, TypeVar
 
 import cachetools
@@ -32,38 +32,25 @@ class RollTransformer(Transformer[Any, Any]):
     def u_num(self, unop: Any):
         return UnOp(*unop)
 
-    def numexpr(self, num_anno: Any):
-        return AnnotatedNumber(*num_anno)
-
     def literal(self, num: Any):
         return Literal(*num)
 
-    def set(self, opset: Any):
-        return OperatedSet(*opset)
-
-    def set_op(self, opsel: Any):
-        return SetOperator.new(*opsel)
-
-    def setexpr(self, the_set: Any):
-        if len(the_set) == 1 and the_set[-1] is not self._comma:
-            return Parenthetical(the_set[0])
-        elif len(the_set) and the_set[-1] is self._comma:
-            the_set = the_set[:-1]
-        return NumberSet(the_set)
+    def parenthetical(self, num: Any):
+        return Parenthetical(*num)
 
     def dice(self, opdice: Any):
         return OperatedDice(*opdice)
 
     def dice_op(self, opsel: Any):
-        return SetOperator.new(*opsel)
+        return Operator.new(*opsel)
 
-    def diceexpr(self, dice: Any):
+    def dice_expr(self, dice: Any):
         if len(dice) == 1:
             return Dice(1, *dice)
         return Dice(*dice)
 
     def selector(self, sel: Any):
-        return SetSelector(*sel)
+        return Selector(*sel)
 
     def comma(self, _):
         return self._comma
@@ -78,7 +65,7 @@ class ChildMixin(Generic[ChildType]):
 
     @property
     @abc.abstractmethod
-    def children(self) -> list[ChildType]:
+    def children(self) -> Sequence[ChildType]:
         """
         Returns a list of this node's roll children.
 
@@ -164,35 +151,6 @@ class Expression(Node):  # expr
         return str(self.roll)
 
 
-class AnnotatedNumber(Node):  # numexpr
-    """Represents a value with an annotation."""
-
-    __slots__ = ("value", "annotations")
-
-    value: Node
-    annotations: list[str]
-
-    def __init__(self, value: Node, *annotations: Token | str):
-        """
-        :type value: Node
-        :type annotations: lark.Token or str
-        """
-        super().__init__()
-        self.value = value
-        self.annotations = [str(a).strip() for a in annotations]
-
-    @property
-    def children(self):
-        return [self.value]
-
-    def set_child(self, index: int, value: Node):
-        self._child_set_check(index)
-        self.value = value
-
-    def __str__(self):
-        return f"{str(self.value)} {''.join(self.annotations)}"
-
-
 class Literal(Node):  # literal
     __slots__ = ("value",)
 
@@ -220,16 +178,18 @@ class Literal(Node):  # literal
 
 
 class Parenthetical(Node):
-    __slots__ = ("value",)
+    __slots__ = ("value", "operations")
 
     value: Node
+    operations: list["Operator"]
 
-    def __init__(self, value: Node):
+    def __init__(self, value: Node, *operations: "Operator"):
         """
         :type value: Node
         """
         super().__init__()
         self.value = value
+        self.operations = list(operations)
 
     @property
     def children(self):
@@ -303,15 +263,15 @@ class BinOp(Node):  # a_num, m_num
         return f"{str(self.left)} {self.op} {str(self.right)}"
 
 
-class SetOperator:  # set_op, dice_op
+class Operator:  # set_op, dice_op
     __slots__ = ("op", "sels")
 
     IMMEDIATE = {"mi", "ma"}
 
     op: str
-    sels: list["SetSelector"]
+    sels: list["Selector"]
 
-    def __init__(self, op: str | Token, sels: list["SetSelector"]):
+    def __init__(self, op: str | Token, sels: list["Selector"]):
         """
         :type op: lark.Token or str
         :type sels: list of SetSelector
@@ -320,14 +280,14 @@ class SetOperator:  # set_op, dice_op
         self.sels = sels
 
     @classmethod
-    def new(cls, op: str | Token, sel: "SetSelector | None" = None):
+    def new(cls, op: str | Token, sel: "Selector | None" = None):
         if sel is None:
             sels = []
         else:
             sels = [sel]
         return cls(op, sels)
 
-    def add_sels(self, sels: list["SetSelector"]):
+    def add_sels(self, sels: list["Selector"]):
         self.sels.extend(sels)
 
     def __str__(self):
@@ -336,7 +296,7 @@ class SetOperator:  # set_op, dice_op
         return "".join([f"{self.op}{str(sel)}" for sel in self.sels])
 
 
-class SetSelector:  # selector
+class Selector:  # selector
     __slots__ = ("cat", "num")
 
     cat: str | None
@@ -356,36 +316,39 @@ class SetSelector:  # selector
         return str(self.num)
 
 
-class OperatedSet(Node):  # set
-    __slots__ = ("value", "operations")
+class OperatedDice(Node):  # set
+    __slots__ = ("dice", "operations")
 
-    set: "NumberSet | Dice"
-    operations: list[SetOperator]
+    dice: "Dice"
+    operations: list[Operator]
 
-    def __init__(self, the_set: "NumberSet | Dice", *operations: SetOperator):
+    def __init__(self, dice: "Dice", *operations: Operator):
         """
         :type the_set: NumberSet or Dice
         :type operations: SetOperator
         """
         super().__init__()
-        self.value = the_set
+        self.dice = dice
         self.operations = list(operations)
         self._simplify_operations()
 
     @property
     def children(self):
-        return [self.value]
+        return [self.dice]
 
     def set_child(self, index: int, value: Node):
+        if not isinstance(value, Dice):
+            raise ValueError(f"Can only set the child of operated dice to a dice!")
+
         self._child_set_check(index)
-        self.value = value
+        self.dice = value
 
     def _simplify_operations(self):
         """Simplifies expressions like k1k2k3 into k(1,2,3)."""
-        new_operations: list[SetOperator] = []
+        new_operations: list[Operator] = []
 
         for operation in self.operations:
-            if operation.op in SetOperator.IMMEDIATE or not new_operations:
+            if operation.op in Operator.IMMEDIATE or not new_operations:
                 new_operations.append(operation)
             else:
                 last_op = new_operations[-1]
@@ -397,56 +360,14 @@ class OperatedSet(Node):  # set
         self.operations = new_operations
 
     def __str__(self):
-        return f"{str(self.value)}{''.join([str(op) for op in self.operations])}"
+        return f"{str(self.dice)}{''.join([str(op) for op in self.operations])}"
 
 
-class NumberSet(Node):  # setexpr
-    __slots__ = ("values",)
-
-    values: list[Node]
-
-    def __init__(self, values: list[Node]):
-        """
-        :type values: list of Node
-        """
-        super().__init__()
-        self.values = list(values)
-
-    @property
-    def children(self):
-        return self.values
-
-    def set_child(self, index: int, value: Node):
-        self._child_set_check(index)
-        self.values[index] = value
-
-    def __str__(self):
-        out = f"{', '.join([str(v) for v in self.values])}"
-        if len(self.values) == 1:
-            return f"({out},)"
-        return f"({out})"
-
-    def __copy__(self):
-        # we need to take a copy of the values list as well
-        return NumberSet(values=self.values.copy())
-
-
-class OperatedDice(OperatedSet):  # dice
-    __slots__ = ()
-
-    def __init__(self, the_dice: "Dice", *operations: SetOperator):
-        """
-        :type the_dice: Dice
-        :type operations: SetOperator
-        """
-        super().__init__(the_dice, *operations)
-
-
-class Dice(Node):  # diceexpr
+class Dice(Node):  # dice_expr
     __slots__ = ("num", "size")
 
     num: int
-    size: str | int
+    size: int | typing.Literal["%"]
 
     def __init__(self, num: int | Token, size: int | str | Token):
         """
@@ -456,7 +377,7 @@ class Dice(Node):  # diceexpr
         super().__init__()
         self.num = int(num)
         if str(size) == "%":
-            self.size = str(size)
+            self.size = "%"
         else:
             self.size = int(size)
 
