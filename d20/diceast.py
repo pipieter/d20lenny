@@ -1,8 +1,14 @@
 import abc
+from collections.abc import MutableMapping
 import os
 from typing import Any, Generic, TypeVar
+import typing
 
+import cachetools
 from lark import Lark, Token, Transformer
+import lark
+
+from d20.errors import RollSyntaxError
 
 # ===== transformer, parser -> ast =====
 
@@ -465,15 +471,50 @@ class Dice(Node):  # diceexpr
         return f"{self.num}d{self.size}"
 
 
-with open(os.path.join(os.path.dirname(__file__), "grammar.lark")) as f:
-    grammar = f.read()
-parser = Lark(grammar, start=["expr"], parser="lalr", transformer=RollTransformer(), maybe_placeholders=True)
+class Parser:
+    _lark: Lark
+    _cache: MutableMapping[str, Expression]
+    _transformer: RollTransformer
+
+    def __init__(self, grammar_path: str) -> None:
+        with open(grammar_path, "r") as grammar_file:
+            grammar = grammar_file.read()
+
+        self._transformer = RollTransformer()
+        self._cache = cachetools.LFUCache(256)
+        self._lark = Lark(
+            grammar,
+            start=["expr"],
+            parser="lalr",
+            transformer=self._transformer,
+            maybe_placeholders=True,
+        )
+
+    def parse(self, expr: str | bytes, start: str | None = None) -> Expression:
+        if start is None:
+            start = "expr"
+
+        try:
+            expr = str(expr)
+            # see if this expr is in cache
+            clean_expr = expr.replace(" ", "")
+            if clean_expr in self._cache:
+                dice_tree = self._cache[clean_expr]
+            else:
+                dice_tree = self._lark.parse(expr, start=start)  # type: ignore
+                dice_tree = typing.cast(Expression, dice_tree)
+                self._cache[clean_expr] = dice_tree
+            return dice_tree
+        except lark.UnexpectedToken as ut:
+            raise RollSyntaxError(ut.line, ut.column, ut.token, ut.expected)
+        except lark.UnexpectedCharacters as uc:
+            raise RollSyntaxError(uc.line, uc.column, expr[uc.pos_in_stream], uc.allowed)
+
 
 if __name__ == "__main__":
+    grammar_path = os.path.join(os.path.dirname(__file__), "grammar.lark")
+    parser = Parser(grammar_path)
+
     while True:
-        parser = Lark(grammar, start=["expr"], parser="lalr", maybe_placeholders=True)
-        result = parser.parse(input("> "), start="expr")  # type: ignore
-        print(result.pretty())
-        print(result)
-        expr = RollTransformer().transform(result)
+        expr = parser.parse(input("> "), start="expr")  # type: ignore
         print(str(expr))
