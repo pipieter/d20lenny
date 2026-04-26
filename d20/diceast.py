@@ -178,18 +178,16 @@ class Literal(Node):  # literal
 
 
 class Parenthetical(Node):
-    __slots__ = ("value", "operations")
+    __slots__ = ("value")
 
     value: Node
-    operations: list["Operator"]
 
-    def __init__(self, value: Node, *operations: "Operator"):
+    def __init__(self, value: Node):
         """
         :type value: Node
         """
         super().__init__()
         self.value = value
-        self.operations = list(operations)
 
     @property
     def children(self):

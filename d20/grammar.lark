@@ -22,7 +22,7 @@ U_OP: "+" | "-"
 
 literal: INTEGER | DECIMAL
 
-parenthetical: "(" _WS? num _WS? ")" dice_op*
+parenthetical: "(" _WS? num _WS? ")"
 
 // dice
 ?dice: dice_expr dice_op*

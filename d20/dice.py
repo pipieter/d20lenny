@@ -138,13 +138,7 @@ class Roller:
         return Literal(node.value, kept=True, annotation=None)
 
     def _eval_parenthetical(self, node: ast.Parenthetical) -> Parenthetical:
-        target = self._eval(node.value)
-        target = typing.cast(Set, target)
-        for op in node.operations:
-            the_op = SetOperator.from_ast(op)
-            the_op.operate(target)
-            target.operations.append(the_op)
-        return Parenthetical(target)
+        return Parenthetical(self._eval(node.value))
 
     def _eval_unop(self, node: ast.UnOp) -> UnOp:
         return UnOp(node.op, self._eval(node.value), kept=True, annotation=None)

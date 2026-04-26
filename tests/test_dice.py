@@ -11,7 +11,6 @@ STANDARD_EXPRESSIONS = [
     "((1d6))",
     "4*(3d8kh2+9+(9d2e2+3)/2)",
     "(3d6kl1)",
-    "((10d6kh5)kl2)kh1",
 ]
 
 
@@ -43,7 +42,6 @@ def test_sane_totals():
         assert r("1d%") % 10 == 0
         assert 3 <= r("4d6kh3") <= 18
         assert 1 <= r("(((1d6)))") <= 6
-        assert 1 <= r("((10d6kh5)kl2)kh1") <= 6
 
 
 def test_pemdas():
