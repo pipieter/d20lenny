@@ -1,10 +1,7 @@
 import random
 import typing
 from enum import IntEnum
-from typing import Any, Callable, Mapping, MutableMapping, Optional, Type, Union
-
-import cachetools
-import lark
+from typing import Any, Callable, Mapping, Optional, Type
 
 from . import diceast as ast, rand, utils
 from .context import *
@@ -119,21 +116,20 @@ class Roller:
             ast.OperatedDice: self._eval_operateddice,
             ast.Dice: self._eval_dice,
         }
-        self._parse_cache: MutableMapping[str, ast.Node] = cachetools.LFUCache(256)
         self.context = context
         self.rng = rng
 
     def roll(
         self,
-        expr: Union[str, ast.Node],
+        dice_tree: ast.Node,
         stringifier: Optional[Stringifier] = None,
         advantage: AdvType = AdvType.NONE,
     ) -> RollResult:
         """
         Rolls the dice.
 
-        :param expr: The dice to roll.
-        :type expr: str or ast.Node
+        :param dice_tree: The parsed tree of the dice to roll.
+        :type expr: ast.Node
         :param stringifier: The stringifier to stringify the result. Defaults to MarkdownStringifier.
         :type stringifier: d20.Stringifier
         :param AdvType advantage: If the roll should be made at advantage. Only applies if the leftmost node is 1d20.
@@ -144,43 +140,12 @@ class Roller:
 
         self.context.reset()
 
-        if isinstance(expr, str):  # is this a preparsed tree?
-            dice_tree = self.parse(expr)
-        else:
-            dice_tree = expr
-
         if advantage != AdvType.NONE:
             dice_tree = utils.ast_adv_copy(dice_tree, advantage)
 
         dice_expr = self._eval(dice_tree)
         dice_expr = typing.cast(Expression, dice_expr)
         return RollResult(dice_tree, dice_expr, stringifier)
-
-    # parsers
-    def parse(self, expr: str) -> ast.Expression:
-        """
-        Parses a dice expression into an AST.
-
-        :param expr: The dice to roll.
-        :type expr: str
-        :rtype: ast.Expression
-        """
-        try:
-            # see if this expr is in cache
-            clean_expr = expr.replace(" ", "")
-            if clean_expr in self._parse_cache:
-                dice_tree = self._parse_cache[clean_expr]
-                dice_tree = typing.cast(ast.Expression, dice_tree)
-            else:
-                dice_tree = ast.parser.parse(expr, start="expr")  # type: ignore
-                dice_tree = typing.cast(ast.Node, dice_tree)
-                self._parse_cache[clean_expr] = dice_tree
-                dice_tree = typing.cast(ast.Expression, dice_tree)
-            return dice_tree
-        except lark.UnexpectedToken as ut:
-            raise RollSyntaxError(ut.line, ut.column, ut.token, ut.expected)
-        except lark.UnexpectedCharacters as uc:
-            raise RollSyntaxError(uc.line, uc.column, expr[uc.pos_in_stream], uc.allowed)
 
     # evaluator
     def _eval(self, node: ast.Node) -> Number:
