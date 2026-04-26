@@ -516,5 +516,5 @@ if __name__ == "__main__":
     parser = Parser(grammar_path)
 
     while True:
-        expr = parser.parse(input("> "), start="expr")  # type: ignore
+        expr = parser.parse(input("> "), start="expr")
         print(str(expr))
