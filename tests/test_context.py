@@ -2,7 +2,7 @@ import pytest
 
 import d20
 from d20 import parse
-from d20.common import AdvType
+from d20.enums import AdvType
 from d20.context import Context
 
 

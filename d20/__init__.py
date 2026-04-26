@@ -2,7 +2,7 @@ import os
 
 from . import diceast as ast
 from .rand import random_impl
-from .common import *
+from .enums import *
 from .errors import *
 from .roll import Roller
 from .roll.stringifier import Stringifier

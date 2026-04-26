@@ -1,7 +1,7 @@
 import random
 
 from . import diceast as ast
-from .common import AdvType
+from .enums import AdvType
 from .errors import RollValueError, TooManyRolls
 
 __all__ = ("RollContext",)

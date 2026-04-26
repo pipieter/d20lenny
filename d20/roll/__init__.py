@@ -7,7 +7,7 @@ from typing import Callable, Optional, Type
 from .expression import BinOp, Dice, Expression, Literal, Number, OperatedDice, Parenthetical, UnOp
 from .stringifier import SimpleStringifier, Stringifier
 from .. import diceast as ast
-from ..common import AdvType, CritType
+from ..enums import AdvType, CritType
 from ..context import RollContext
 from ..rand import random_impl
 
