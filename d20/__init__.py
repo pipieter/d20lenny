@@ -5,6 +5,7 @@ from .dice import *
 from .errors import *
 from .expression import *
 from .stringifiers import *
+from .common import *
 
 _grammar_path = os.path.join(os.path.dirname(__file__), "grammar.lark")
 _parser = ast.Parser(_grammar_path)

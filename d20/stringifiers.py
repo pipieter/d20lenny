@@ -1,7 +1,7 @@
 import abc
 from typing import Any, Callable, Iterable, Mapping, Type
 
-from .expression import *
+from .expression import Number, Expression, Literal, UnOp, BinOp, Parenthetical, Set, Dice, Die, SetOperator
 
 __all__ = ("Stringifier", "SimpleStringifier", "MarkdownStringifier")
 

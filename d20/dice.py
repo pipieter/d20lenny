@@ -1,6 +1,5 @@
 import random
 import typing
-from enum import IntEnum
 from typing import Any, Callable, Mapping, Optional, Type
 
 from . import diceast as ast, rand, utils
@@ -8,28 +7,9 @@ from .context import *
 from .errors import *
 from .expression import *
 from .stringifiers import MarkdownStringifier, Stringifier
+from .common import AdvType, CritType
 
-__all__ = ("CritType", "AdvType", "RollResult", "Roller")
-
-
-class CritType(IntEnum):
-    """
-    Integer enumeration representing the crit type of a roll.
-    """
-
-    NONE = 0
-    CRIT = 1
-    FAIL = 2
-
-
-class AdvType(IntEnum):
-    """
-    Integer enumeration representing at what advantage a roll should be made at.
-    """
-
-    NONE = 0
-    ADV = 1
-    DIS = -1
+__all__ = ("RollResult", "Roller")
 
 
 class RollResult:
