@@ -2,7 +2,6 @@ import pytest
 
 import d20
 from d20 import parse
-from d20.enums import AdvType
 from d20.context import Context
 
 
@@ -24,7 +23,7 @@ from d20.context import Context
 )
 def test_context_d20(d20: bool, type: type, expr: str):
     tree = parse(expr)
-    context = Context(tree, AdvType.NONE)
+    context = Context(tree)
 
     if d20:
         assert context.d20 is not None

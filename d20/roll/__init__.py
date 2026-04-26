@@ -116,7 +116,7 @@ class Roller:
         if stringifier is None:
             stringifier = SimpleStringifier()
 
-        context = RollContext(node, advantage, self.rng)
+        context = RollContext(node, self.rng)
         warnings: list[str] = []
 
         roll = self._eval(node, context)

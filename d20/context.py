@@ -1,7 +1,6 @@
 import random
 
 from . import diceast as ast
-from .enums import AdvType
 from .errors import RollValueError, TooManyRolls
 
 __all__ = ("RollContext",)
@@ -9,14 +8,10 @@ __all__ = ("RollContext",)
 
 class Context:
     expr: ast.Node
-    advantage: AdvType
-
     d20: ast.Dice | ast.OperatedDice | None
 
-    def __init__(self, expr: ast.Node, advantage: AdvType) -> None:
+    def __init__(self, expr: ast.Node) -> None:
         self.expr = expr
-        self.advantage = advantage
-
         self.d20 = self._find_d20(expr)
 
     @staticmethod
@@ -79,8 +74,8 @@ class RollContext(Context):
     To use this class, pass an instance to the constructor of :class:`d20.Roller`.
     """
 
-    def __init__(self, expr: ast.Node, advantage: AdvType, rng: random.Random, max_rolls: int = 1000):
-        super().__init__(expr, advantage)
+    def __init__(self, expr: ast.Node, rng: random.Random, max_rolls: int = 1000):
+        super().__init__(expr)
         self.rng = rng
         self.max_rolls = max_rolls
         self.rolls = 0
