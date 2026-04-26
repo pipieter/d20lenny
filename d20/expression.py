@@ -571,7 +571,7 @@ class SetOperator:  # set_op, dice_op
         self.sels = sels
 
     @classmethod
-    def from_ast(cls, node: ast.SetOperator):
+    def from_ast(cls, node: ast.Operator):
         return cls(node.op, [SetSelector.from_ast(n) for n in node.sels])
 
     @staticmethod
@@ -763,7 +763,7 @@ class SetSelector:  # selector
         self.num = num
 
     @classmethod
-    def from_ast(cls, node: ast.SetSelector):
+    def from_ast(cls, node: ast.Selector):
         return cls(node.cat, node.num)
 
     def select(self, target: Set, max_targets: Optional[int] = None) -> set[Number]:

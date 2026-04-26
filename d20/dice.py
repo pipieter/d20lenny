@@ -106,13 +106,10 @@ class Roller:
 
         self._nodes: Mapping[Type[ast.Node], Callable[[Any], Number]] = {
             ast.Expression: self._eval_expression,
-            ast.AnnotatedNumber: self._eval_annotatednumber,
             ast.Literal: self._eval_literal,
             ast.Parenthetical: self._eval_parenthetical,
             ast.UnOp: self._eval_unop,
             ast.BinOp: self._eval_binop,
-            ast.OperatedSet: self._eval_operatedset,
-            ast.NumberSet: self._eval_numberset,
             ast.OperatedDice: self._eval_operateddice,
             ast.Dice: self._eval_dice,
         }
@@ -157,16 +154,17 @@ class Roller:
     def _eval_expression(self, node: ast.Expression) -> Expression:
         return Expression(self._eval(node.roll), kept=True, annotation=None)
 
-    def _eval_annotatednumber(self, node: ast.AnnotatedNumber) -> Number:
-        target = self._eval(node.value)
-        target.annotation = "".join(node.annotations)
-        return target
-
     def _eval_literal(self, node: ast.Literal) -> Literal:
         return Literal(node.value, kept=True, annotation=None)
 
     def _eval_parenthetical(self, node: ast.Parenthetical) -> Parenthetical:
-        return Parenthetical(self._eval(node.value), kept=True, annotation=None)
+        target = self._eval(node.value)
+        target = typing.cast(Set, target)
+        for op in node.operations:
+            the_op = SetOperator.from_ast(op)
+            the_op.operate(target)
+            target.operations.append(the_op)
+        return Parenthetical(target)
 
     def _eval_unop(self, node: ast.UnOp) -> UnOp:
         return UnOp(node.op, self._eval(node.value), kept=True, annotation=None)
@@ -174,20 +172,14 @@ class Roller:
     def _eval_binop(self, node: ast.BinOp) -> BinOp:
         return BinOp(self._eval(node.left), node.op, self._eval(node.right), kept=True, annotation=None)
 
-    def _eval_operatedset(self, node: ast.OperatedSet) -> Number:
-        target = self._eval(node.value)
+    def _eval_operateddice(self, node: ast.OperatedDice) -> Number:
+        target = self._eval(node.dice)
         target = typing.cast(Set, target)
         for op in node.operations:
             the_op = SetOperator.from_ast(op)
             the_op.operate(target)
             target.operations.append(the_op)
         return target
-
-    def _eval_numberset(self, node: ast.NumberSet) -> Set:
-        return Set([self._eval(n) for n in node.values], kept=True, annotation=None)
-
-    def _eval_operateddice(self, node: ast.OperatedDice) -> Number:
-        return self._eval_operatedset(node)
 
     def _eval_dice(self, node: ast.Dice) -> Dice:
         return Dice.new(node.num, node.size, context=self.context, rng=self.rng, kept=True, annotation=None)
