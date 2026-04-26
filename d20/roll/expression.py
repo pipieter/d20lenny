@@ -1,10 +1,12 @@
 import abc
 from collections.abc import Callable, Mapping
+import math
 from typing import Generic, Sequence, TypeVar
 
 
 from ..context import RollContext
 from .. import diceast as ast
+from ..diceast import Node as ASTNode
 from .. import errors as errors
 
 TNode = TypeVar("TNode", bound=ast.Node, covariant=True)
@@ -22,7 +24,7 @@ class Number(Generic[TNode], abc.ABC):
 
     @property
     @abc.abstractmethod
-    def total(self) -> int | float:
+    def total(self) -> int:
         """The total value of the Number."""
         raise NotImplementedError
 
@@ -37,6 +39,21 @@ class Number(Generic[TNode], abc.ABC):
         """A Python representation of the Number."""
         raise NotImplementedError
 
+    @abc.abstractmethod
+    def copy(self) -> "Number[TNode]":
+        raise NotImplementedError
+
+    def find_from_ast(self, ast: ASTNode) -> "Number[ASTNode] | None":
+        if self.ast == ast:
+            return self
+
+        for child in self.children:
+            found = child.find_from_ast(ast)
+            if found is not None:
+                return found
+
+        return None
+
 
 class Expression(Number[ast.Expression]):
     """Expressions are usually the root of all Number trees."""
@@ -48,7 +65,7 @@ class Expression(Number[ast.Expression]):
         self.roll = roll
 
     @property
-    def total(self) -> int | float:
+    def total(self) -> int:
         return self.roll.total
 
     @property
@@ -57,6 +74,9 @@ class Expression(Number[ast.Expression]):
 
     def __repr__(self) -> str:
         return f"<Expression roll={repr(self.roll)}/>"
+
+    def copy(self) -> "Expression":
+        return Expression(self.roll.copy(), self.ast)
 
 
 class Literal(Number[ast.Literal]):
@@ -69,8 +89,8 @@ class Literal(Number[ast.Literal]):
         self.value = value
 
     @property
-    def total(self) -> int | float:
-        return self.value
+    def total(self) -> int:
+        return math.floor(self.value)
 
     @property
     def children(self) -> Sequence[Number[ast.Node]]:
@@ -78,6 +98,9 @@ class Literal(Number[ast.Literal]):
 
     def __repr__(self) -> str:
         return f"<Literal value={self.value}/>"
+
+    def copy(self) -> "Literal":
+        return Literal(self.value, self.ast)
 
 
 class Parenthetical(Number[ast.Parenthetical]):
@@ -90,7 +113,7 @@ class Parenthetical(Number[ast.Parenthetical]):
         self.value = value
 
     @property
-    def total(self) -> int | float:
+    def total(self) -> int:
         return self.value.total
 
     @property
@@ -99,6 +122,9 @@ class Parenthetical(Number[ast.Parenthetical]):
 
     def __repr__(self) -> str:
         return f"<Parenthetical value={repr(self.value)}/>"
+
+    def copy(self) -> "Parenthetical":
+        return Parenthetical(self.value.copy(), self.ast)
 
 
 class UnOp(Number[ast.UnOp]):
@@ -113,7 +139,7 @@ class UnOp(Number[ast.UnOp]):
         self.value = value
 
     @property
-    def total(self) -> int | float:
+    def total(self) -> int:
         if self.op == "-":
             return -self.value.total
         else:
@@ -125,6 +151,9 @@ class UnOp(Number[ast.UnOp]):
 
     def __repr__(self) -> str:
         return f"<UnOp op={self.op} value={repr(self.value)}/>"
+
+    def copy(self) -> "UnOp":
+        return UnOp(self.op, self.value.copy(), self.ast)
 
 
 class BinOp(Number[ast.BinOp]):
@@ -156,10 +185,15 @@ class BinOp(Number[ast.BinOp]):
         self.right = right
 
     @property
-    def total(self) -> int | float:
+    def total(self) -> int:
         if self.op not in self.BINARY_OPS:
             raise ValueError(f"Invalid binary operator: '{self.op}'")
-        return self.BINARY_OPS[self.op](self.left.total, self.right.total)
+
+        try:
+            result = self.BINARY_OPS[self.op](self.left.total, self.right.total)
+            return math.floor(result)
+        except ZeroDivisionError:
+            raise errors.RollValueError("Cannot divide by zero.")
 
     @property
     def children(self) -> Sequence[Number[ast.Node]]:
@@ -167,6 +201,9 @@ class BinOp(Number[ast.BinOp]):
 
     def __repr__(self) -> str:
         return f"<BinOp op={self.op} left={repr(self.left)} right={repr(self.right)}/>"
+
+    def copy(self) -> "BinOp":
+        return BinOp(self.left.copy(), self.op, self.right.copy(), self.ast)
 
 
 class Die:
@@ -218,6 +255,9 @@ class Die:
         value = context.roll(size)
         return Die(value, size, context, kept=kept, exploded=exploded)
 
+    def copy(self) -> "Die":
+        return Die(value=[*self.values], size=self.size, context=self._context, kept=self.kept, exploded=self.exploded)
+
 
 class Dice(Number[ast.Dice]):
     """Represents a set of dice."""
@@ -227,21 +267,28 @@ class Dice(Number[ast.Dice]):
     size: ast.DiceSize
     _context: RollContext
 
-    def __init__(self, ast: ast.Dice, context: RollContext) -> None:
+    def __init__(self, dice: list[Die], num: int, size: ast.DiceSize, ast: ast.Dice, context: RollContext) -> None:
         super().__init__(ast)
-
-        self.dice = []
+        self.dice = dice
         self._context = context
 
-        self.num = ast.num
-        self.size = ast.size
+        self.num = num
+        self.size = size
 
-        for _ in range(self.num):
-            die = Die.new(self.size, self._context)
-            self.dice.append(die)
+    @classmethod
+    def new(cls, ast: ast.Dice, context: RollContext) -> "Dice":
+        num = ast.num
+        size = ast.size
+        dice: list[Die] = []
+
+        for _ in range(num):
+            die = Die.new(size, context)
+            dice.append(die)
+
+        return cls(dice, num, size, ast, context)
 
     @property
-    def total(self) -> int | float:
+    def total(self) -> int:
         return sum(die.value for die in self.dice)
 
     @property
@@ -250,6 +297,10 @@ class Dice(Number[ast.Dice]):
 
     def __repr__(self) -> str:
         return f"<OperatedDice num={self.num} size={self.size} />"
+
+    def copy(self) -> "Dice":
+        dice = [die.copy() for die in self.dice]
+        return Dice(dice, self.num, self.size, self.ast, self._context)
 
 
 class OperatedDice(Number[ast.OperatedDice]):
@@ -261,21 +312,39 @@ class OperatedDice(Number[ast.OperatedDice]):
     operators: list["Operator"]
     _context: RollContext
 
-    def __init__(self, ast: ast.OperatedDice, context: RollContext) -> None:
+    def __init__(
+        self,
+        dice: list[Die],
+        num: int,
+        size: ast.DiceSize,
+        operators: list["Operator"],
+        ast: ast.OperatedDice,
+        context: RollContext,
+    ) -> None:
         super().__init__(ast)
 
-        self.dice = []
-        self.operators = [Operator.from_ast(op) for op in ast.operations]
+        self.dice = dice
+        self.num = num
+        self.size = size
+        self.operators = operators
         self._context = context
 
-        self.num = self.ast.dice.num
-        self.size = self.ast.dice.size
+    @classmethod
+    def new(cls, ast: ast.OperatedDice, context: RollContext) -> "OperatedDice":
+        num = ast.dice.num
+        size = ast.dice.size
+        dice: list[Die] = []
+        operators = [Operator.from_ast(op) for op in ast.operations]
 
-        for _ in range(self.num):
-            self.roll_another()
+        for _ in range(num):
+            die = Die.new(size, context)
+            dice.append(die)
 
-        for operator in self.operators:
-            operator.operate(self)
+        result = cls(dice, num, size, operators, ast, context)
+        for operator in operators:
+            operator.operate(result)
+
+        return result
 
     def roll_another(self, negative: bool = False):
         die = Die.new(self.size, self._context)
@@ -286,7 +355,7 @@ class OperatedDice(Number[ast.OperatedDice]):
         self.dice.append(die)
 
     @property
-    def total(self) -> int | float:
+    def total(self) -> int:
         return sum(die.value for die in self.keptset)
 
     @property
@@ -303,6 +372,15 @@ class OperatedDice(Number[ast.OperatedDice]):
     def __repr__(self) -> str:
         operators = "".join(repr(operator) for operator in self.operators)
         return f"<OperatedDice num={self.num} size={self.size} operators={operators}/>"
+
+    def copy(self) -> "OperatedDice":
+        dice = [die.copy() for die in self.dice]
+        return OperatedDice(dice, self.num, self.size, self.operators, self.ast, self._context)
+
+
+# endregion ====== Number ======
+
+# region ====== Operators ======
 
 
 class Operator:
@@ -490,4 +568,4 @@ class Selector:
         return f"<SetSelector cat={self.cat} num={self.num}>"
 
 
-# endregion ===== Number ======
+# endregion ===== Operators ======
