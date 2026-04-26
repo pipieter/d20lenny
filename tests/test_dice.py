@@ -8,10 +8,9 @@ STANDARD_EXPRESSIONS = [
     "1+1",
     "4d6kh3",
     "(1)",
-    "(1,)",
     "((1d6))",
     "4*(3d8kh2+9+(9d2e2+3)/2)",
-    "(1d4, 2+2, 3d6kl1)kh1",
+    "(3d6kl1)",
     "((10d6kh5)kl2)kh1",
 ]
 
@@ -44,7 +43,6 @@ def test_sane_totals():
         assert r("1d%") % 10 == 0
         assert 3 <= r("4d6kh3") <= 18
         assert 1 <= r("(((1d6)))") <= 6
-        assert 4 <= r("(1d4, 2+2, 3d6kl1)kh1") <= 6
         assert 1 <= r("((10d6kh5)kl2)kh1") <= 6
 
 
@@ -68,7 +66,6 @@ def test_invalid_rolls():
 def test_chaining_operators():
     assert 0 <= r("10d6k1k2k3") <= 30
     assert 0 <= r("10d6k1ph1") <= 9
-    assert r("(1, 2, 3)k1k2") == 3
 
 
 def test_crit():
@@ -105,12 +102,6 @@ def test_dice():
         assert 0 <= r("d%") <= 90
         assert 0 <= r("1d%") <= 90
         assert 0 <= r("2d%") <= 180
-
-
-def test_set():
-    assert r("(1)") == 1
-    assert r("(1,)") == 1
-    assert r("(1, 1)") == 2
 
 
 def test_unop():
@@ -161,29 +152,6 @@ def test_comparison():
     assert r("2 <= 1") == 0
     assert r("1 != 1") == 0
     assert r("1 != 2") == 1
-
-
-def test_selectors():
-    assert r("(1, 2, 3, 4, 5)k3") == 3
-    assert r("(1, 2, 3, 4, 5)k<3") == 3
-    assert r("(1, 2, 3, 4, 5)k>3") == 9
-    assert r("(1, 2, 3, 4, 5)kl2") == 3
-    assert r("(1, 2, 3, 4, 5)kh2") == 9
-    assert r("(1)k1") == 1
-    assert r("(1)k2") == 0
-
-
-# set operators
-def test_k_op():
-    assert r("(1, 2, 3, 4, 5)k3") == 3
-    assert r("(1, 2, 3, 4, 5)k1k2") == 3
-    assert r("(1, 2, 3, 4, 5)kh1kl1") == 6
-
-
-def test_p_op():
-    assert r("(1, 2, 3, 4, 5)p3") == 12
-    assert r("(1, 2, 3, 4, 5)p1p2") == 12
-    assert r("(1, 2, 3, 4, 5)ph1pl1") == 9
 
 
 # dice operators

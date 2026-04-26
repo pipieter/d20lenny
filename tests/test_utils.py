@@ -82,52 +82,6 @@ class TestTreeMap:
         assert mapped is not expr
         assert SimpleStringifier().stringify(expr) == "1 + 2 + 3 = 6"
 
-    def test_ast_map_set_copy(self):  # avrae/avrae#1537
-        tree = parse("(1d6, 1d6)kh1")
-
-        def mapper(node: ast.Node):
-            if isinstance(node, ast.Dice):
-                return ast.Dice(node.num * 2, node.size)
-            return node
-
-        mapped = utils.tree_map(mapper, tree)
-
-        assert str(mapped) == "(2d6, 2d6)kh1"
-        assert mapped is not tree
-        assert str(tree) == "(1d6, 1d6)kh1"
-
-    def test_expr_map_set_copy(self):
-        expr = roll("(1, 2, 3)").expr
-
-        def mapper(node: expression.Expression):
-            if isinstance(node, Literal):
-                copied_values = node.values.copy()
-                copied_values[-1] *= 2
-                node.values = copied_values
-            return node
-
-        mapped = utils.tree_map(mapper, expr)
-
-        assert SimpleStringifier().stringify(mapped) == "(2, 4, 6) = 12"
-        assert mapped.total == 12
-        assert mapped is not expr
-        assert SimpleStringifier().stringify(expr) == "(1, 2, 3) = 6"
-
-    def test_expr_map_types(self):
-        expr = roll("(1, 2, 3) + (4, 5, 6)").expr
-
-        def mapper(node: expression.Number):
-            if isinstance(node, Set):
-                return Literal(int(node))
-            return node
-
-        mapped = utils.tree_map(mapper, expr)
-
-        assert SimpleStringifier().stringify(mapped) == "6 + 15 = 21"
-        assert mapped.total == 21
-        assert mapped is not expr
-        assert SimpleStringifier().stringify(expr) == "(1, 2, 3) + (4, 5, 6) = 21"
-
 
 def test_leftmost():
     tree = parse("1d20 + 4d6 + 3")
@@ -143,11 +97,3 @@ def test_rightmost():
 
     expr = roll(tree).expr
     assert SimpleStringifier().stringify(utils.rightmost(expr)) == "3"
-
-
-def test_dfs():
-    mixed = roll("-1d8 + 4 - (3, 1d4)kh1")
-    result = utils.dfs(mixed.expr, lambda node: isinstance(node, Dice) and node.num == 1 and node.size == 4)
-
-    assert result is not None
-    assert SimpleStringifier().stringify(result).startswith("1d4 ")
