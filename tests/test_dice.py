@@ -1,6 +1,9 @@
 import pytest
 
 from d20 import *
+import d20.diceast as ast
+from d20.roll import RollResult
+from d20.roll.expression import Expression
 
 STANDARD_EXPRESSIONS = [
     "1d20",
@@ -28,10 +31,10 @@ def test_roll_types():
     for expr in STANDARD_EXPRESSIONS:
         result = roll(expr)
         assert isinstance(result, RollResult)
-        assert isinstance(result.result, str)
+        assert isinstance(result.expr, str)
         assert isinstance(result.total, (int, float))
         assert isinstance(result.ast, ast.Node)
-        assert isinstance(result.expr, Expression)
+        assert isinstance(result.result, Expression)
 
 
 def test_sane_totals():
@@ -209,7 +212,8 @@ def test_red_op(iterations: int):
 def test_correct_results():
     result = roll("1+2+3")
     assert result.total == 6
-    assert result.result == "1 + 2 + 3 = `6`"
-    result.expr.roll = BinOp(result.expr.roll, "+", Literal(4))
+    assert result.expr == "1 + 2 + 3 = 6"
+
+    result = roll("1+2+3+4")
     assert result.total == 10
-    assert result.result == "1 + 2 + 3 + 4 = `10`"
+    assert result.expr == "1 + 2 + 3 + 4 = 10"
