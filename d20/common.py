@@ -21,3 +21,19 @@ class AdvType(IntEnum):
     NONE = 0
     ADV = 1
     DIS = -1
+
+    @property
+    def rolls(self) -> int:
+        if self.value in [self.ADV.value, self.DIS.value]:
+            return 2
+        return 1
+
+    @property
+    def name(self) -> str:
+        match self.value:
+            case self.NONE.value:
+                return "none"
+            case self.ADV.value:
+                return "advantage"
+            case self.DIS.value:
+                return "disadvantage"
