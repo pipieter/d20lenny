@@ -12,6 +12,8 @@ from d20.errors import RollSyntaxError
 
 # ===== transformer, parser -> ast =====
 
+DiceSize = int | typing.Literal["%"]
+
 
 # noinspection PyMethodMayBeStatic
 class RollTransformer(Transformer[Any, Any]):
@@ -178,7 +180,7 @@ class Literal(Node):  # literal
 
 
 class Parenthetical(Node):
-    __slots__ = ("value")
+    __slots__ = "value"
 
     value: Node
 
@@ -365,7 +367,7 @@ class Dice(Node):  # dice_expr
     __slots__ = ("num", "size")
 
     num: int
-    size: int | typing.Literal["%"]
+    size: DiceSize
 
     def __init__(self, num: int | Token, size: int | str | Token):
         """
