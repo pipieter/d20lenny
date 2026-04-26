@@ -1,12 +1,12 @@
 import abc
-from collections.abc import MutableMapping
 import os
-from typing import Any, Generic, TypeVar
 import typing
+from collections.abc import MutableMapping
+from typing import Any, Generic, TypeVar
 
 import cachetools
-from lark import Lark, Token, Transformer
 import lark
+from lark import Lark, Token, Transformer
 
 from d20.errors import RollSyntaxError
 
