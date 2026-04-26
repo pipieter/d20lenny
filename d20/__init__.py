@@ -1,10 +1,9 @@
 import os
 
-from . import diceast as ast, rand, utils  # type: ignore
-from .dice import *
+from . import diceast as ast, rand  # type: ignore
+from .roll import Roller
+from .roll.stringifier import Stringifier
 from .errors import *
-from .expression import *
-from .stringifiers import *
 from .common import *
 
 _grammar_path = os.path.join(os.path.dirname(__file__), "grammar.lark")
