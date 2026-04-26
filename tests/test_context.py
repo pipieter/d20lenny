@@ -1,9 +1,9 @@
 import pytest
 
-from d20 import parse
 import d20
-from d20.context import Context
+from d20 import parse
 from d20.common import AdvType
+from d20.context import Context
 
 
 @pytest.mark.parametrize(

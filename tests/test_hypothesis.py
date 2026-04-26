@@ -1,7 +1,7 @@
 from hypothesis import Verbosity, given, settings
 
 from d20 import RollError, ast, parse, roll
-from d20.roll import RollResult, Expression
+from d20.roll import Expression, RollResult
 from . import custom_strategies as cst
 
 if False:

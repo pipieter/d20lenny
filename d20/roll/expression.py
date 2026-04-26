@@ -1,13 +1,11 @@
 import abc
-from collections.abc import Callable, Mapping
 import math
+from collections.abc import Callable, Mapping
 from typing import Generic, Sequence, TypeVar
 
-
+from .. import diceast as ast, errors as errors
 from ..context import RollContext
-from .. import diceast as ast
 from ..diceast import Node as ASTNode
-from .. import errors as errors
 
 TNode = TypeVar("TNode", bound=ast.Node, covariant=True)
 

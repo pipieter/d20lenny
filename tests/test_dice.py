@@ -1,7 +1,7 @@
 import pytest
 
-from d20 import *
 import d20.diceast as ast
+from d20 import *
 from d20.roll import RollResult
 from d20.roll.expression import Expression
 

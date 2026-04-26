@@ -1,15 +1,15 @@
 # region ===== Roller ======
 
-from collections.abc import Mapping
 import random
+from collections.abc import Mapping
 from typing import Callable, Optional, Type
 
-from .. import diceast as ast
-from .expression import Expression, Number, Literal, UnOp, BinOp, Parenthetical, Dice, OperatedDice
+from .expression import BinOp, Dice, Expression, Literal, Number, OperatedDice, Parenthetical, UnOp
 from .stringifier import SimpleStringifier, Stringifier
-from ..common import CritType, AdvType
-from ..rand import random_impl
+from .. import diceast as ast
+from ..common import AdvType, CritType
 from ..context import RollContext
+from ..rand import random_impl
 
 
 class RollResult:

@@ -1,8 +1,8 @@
 import abc
 from typing import Any, Callable, Mapping, Type
 
+from .expression import BinOp, Dice, Die, Expression, Literal, Number, OperatedDice, Parenthetical, UnOp
 from .. import diceast as ast
-from .expression import Die, Number, Expression, Literal, UnOp, BinOp, Parenthetical, Dice, OperatedDice
 
 __all__ = ("Stringifier", "SimpleStringifier")
 
