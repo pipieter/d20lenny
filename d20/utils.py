@@ -52,13 +52,13 @@ def find_d20(node: ast.Node) -> ast.Dice | None:
     raise NotImplementedError(f"find_d20 not implemented for {type(node)}")
 
 
-def determine_crit_type(node: expression.Number | None) -> Critical:
-    if isinstance(node, expression.Dice):
-        dice = node.keptset
+def determine_crit_type(root: expression.Number, d20: expression.Number | None) -> Critical:
+    if isinstance(d20, expression.Dice):
+        dice = d20.keptset
     else:
         return Critical.NONE
 
-    if len(dice) != 1 or node.size != 20:
+    if len(dice) != 1 or d20.size != 20:
         return Critical.NONE
 
     if dice[0].value == 1:
@@ -66,6 +66,9 @@ def determine_crit_type(node: expression.Number | None) -> Critical:
 
     if dice[0].value == 20:
         return Critical.CRIT
+
+    if root.total == 20 and dice[0].value != 20:
+        return Critical.DIRTY
 
     return Critical.NONE
 

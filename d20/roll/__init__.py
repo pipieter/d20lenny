@@ -44,7 +44,6 @@ class RollResult:
     advantage: Advantage
     stringifier: Stringifier
     warnings: list[str]
-    crit: Critical
 
     @property
     def total(self) -> int:
@@ -106,28 +105,23 @@ class Roller:
                     rolls.append(next_roll)
 
         result = utils.determine_final_roll(rolls, advantage)
-        crit = Critical.NONE
         die = utils.extract_dice(result)
 
         if len(die) == 0:
             warnings.append("Expression did not contain any dice.")
 
-        if d20:
-            result_d20 = result.find_from_ast(d20)
-            crit = utils.determine_crit_type(result_d20)
-
         result = SingleRollResult(
             ast=node,
             roll=result,
             stringifier=stringifier,
-            crit=utils.determine_crit_type(result.find_from_ast(d20)),
+            crit=utils.determine_crit_type(result, result.find_from_ast(d20)),
         )
         rolls = [
             SingleRollResult(
                 ast=node,
                 roll=roll,
                 stringifier=stringifier,
-                crit=utils.determine_crit_type(roll.find_from_ast(d20)),
+                crit=utils.determine_crit_type(roll, roll.find_from_ast(d20)),
             )
             for roll in rolls
         ]
@@ -139,7 +133,6 @@ class Roller:
             advantage=advantage,
             stringifier=stringifier,
             warnings=warnings,
-            crit=crit,
         )
 
     # evaluator

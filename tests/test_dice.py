@@ -78,15 +78,20 @@ def test_crit():
     result = roll("1d20")
     while result.total != 20:
         result = roll("1d20")
-    assert result.crit == Critical.CRIT
+    assert result.roll.crit == Critical.CRIT
 
     while result.total != 1:
         result = roll("1d20")
-    assert result.crit == Critical.FAIL
+    assert result.roll.crit == Critical.FAIL
 
     while result.total == 1 or result.total == 20:
         result = roll("1d20")
-    assert result.crit == Critical.NONE
+    assert result.roll.crit == Critical.NONE
+
+    result = roll("1d20+1d4+3")
+    while result.total != 20:
+        result = roll("1d20+1d4+3")
+    assert result.roll.crit == Critical.DIRTY
 
 
 # node tests
