@@ -5,36 +5,46 @@ from d20 import *
 from d20.roll import RollResult
 from d20.roll.expression import Expression
 
-STANDARD_EXPRESSIONS = [
-    "1d20",
-    "1d%",
-    "1+1",
-    "4d6kh3",
-    "(1)",
-    "((1d6))",
-    "4*(3d8kh2+9+(9d2e2+3)/2)",
-    "(3d6kl1)",
-]
-
 
 def r(e: str):
     return roll(e).total  # I'm tired of typing roll a bunch of times
 
 
-# high level tests
-def test_rolls_dont_error():
-    for expr in STANDARD_EXPRESSIONS:
-        assert roll(expr)
+@pytest.mark.parametrize(
+    "expr",
+    [
+        "1d20",
+        "1d%",
+        "1+1",
+        "4d6kh3",
+        "(1)",
+        "((1d6))",
+        "4*(3d8kh2+9+(9d2e2+3)/2)",
+        "(3d6kl1)",
+    ],
+)
+def test_rolls_dont_error(expr: str):
+    result = roll(expr)
+    assert isinstance(result, RollResult)
+    assert isinstance(result.expr, str)
+    assert isinstance(result.total, (int, float))
+    assert isinstance(result.ast, ast.Node)
+    assert isinstance(result.result.roll, Expression)
 
 
-def test_roll_types():
-    for expr in STANDARD_EXPRESSIONS:
-        result = roll(expr)
-        assert isinstance(result, RollResult)
-        assert isinstance(result.expr, str)
-        assert isinstance(result.total, (int, float))
-        assert isinstance(result.ast, ast.Node)
-        assert isinstance(result.result.roll, Expression)
+@pytest.mark.parametrize(
+    "expr",
+    [
+        "a",
+        "1d",
+        "1d20+",
+        "*1d20",
+        "1d20ma"
+    ],
+)
+def test_invalid_throw_errors(expr: str):
+    with pytest.raises(RollSyntaxError):
+        roll(expr)
 
 
 def test_sane_totals():
