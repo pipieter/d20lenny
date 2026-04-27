@@ -1,7 +1,7 @@
 import abc
 import math
-from collections.abc import Callable, Mapping
 import random
+from collections.abc import Callable, Mapping
 from typing import Sequence
 
 from .. import diceast as ast, errors as errors

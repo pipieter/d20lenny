@@ -34,13 +34,7 @@ def test_rolls_dont_error(expr: str):
 
 @pytest.mark.parametrize(
     "expr",
-    [
-        "a",
-        "1d",
-        "1d20+",
-        "*1d20",
-        "1d20ma"
-    ],
+    ["a", "1d", "1d20+", "*1d20", "1d20ma"],
 )
 def test_invalid_throw_errors(expr: str):
     with pytest.raises(RollSyntaxError):

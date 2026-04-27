@@ -5,7 +5,7 @@ import random
 from collections.abc import Mapping
 from typing import Callable, Optional, Type
 
-from .expression import BinOp, Dice, Expression, Literal, Number, Parenthetical, UnOp, RollContext
+from .expression import BinOp, Dice, Expression, Literal, Number, Parenthetical, RollContext, UnOp
 from .stringifier import SimpleStringifier, Stringifier
 from .. import diceast as ast, utils
 from ..enums import Advantage, Critical
