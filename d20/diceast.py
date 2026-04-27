@@ -2,7 +2,7 @@ import abc
 import os
 import typing
 from collections.abc import MutableMapping, Sequence
-from typing import Any, Generic, TypeVar
+from typing import Any
 
 import cachetools
 import lark
@@ -11,6 +11,8 @@ from lark import Lark, Token, Transformer
 from d20.errors import RollSyntaxError
 
 # ===== transformer, parser -> ast =====
+
+DiceSize = int | typing.Literal["%"]
 
 
 # noinspection PyMethodMayBeStatic
@@ -39,7 +41,8 @@ class RollTransformer(Transformer[Any, Any]):
         return Parenthetical(*num)
 
     def dice(self, opdice: Any):
-        return OperatedDice(*opdice)
+        dice, *operations = opdice
+        return Dice(dice.num, dice.size, *operations)
 
     def dice_op(self, opsel: Any):
         return Operator.new(*opsel)
@@ -56,73 +59,16 @@ class RollTransformer(Transformer[Any, Any]):
         return self._comma
 
 
-# ===== helper mixin =====
-ChildType = TypeVar("ChildType", bound="ChildMixin")
-
-
-class ChildMixin(Generic[ChildType]):
-    """A mixin that tree nodes must implement to support tree traversal utilities."""
-
-    @property
-    @abc.abstractmethod
-    def children(self) -> Sequence[ChildType]:
-        """
-        Returns a list of this node's roll children.
-
-        :rtype: list of ChildMixin
-        """
-        raise NotImplementedError
-
-    @property
-    def left(self) -> ChildType | None:
-        """
-        Returns the node's leftmost child, or None if there are no children.
-
-        :rtype: ChildMixin or None
-        """
-        return self.children[0] if self.children else None
-
-    @left.setter
-    def left(self, value: ChildType) -> None:
-        self.set_child(0, value)
-
-    @property
-    def right(self) -> ChildType | None:
-        """
-        Returns the node's rightmost child, or None if there are no children.
-
-        :rtype: ChildMixin or None
-        """
-        return self.children[-1] if self.children else None
-
-    @right.setter
-    def right(self, value: ChildType) -> None:
-        self.set_child(-1, value)
-
-    def _child_set_check(self, index: int):
-        if index > (len(self.children) - 1) or index < -len(self.children):
-            raise IndexError
-
-    @abc.abstractmethod
-    def set_child(self, index: int, value: ChildType) -> None:
-        """
-        Sets the ith child of this object.
-
-        :param int index: The index of the value to set.
-        :param value: The new value to set it to.
-        :type value: ChildMixin
-        """
-        self._child_set_check(index)
-        raise NotImplementedError
-
-
 # ===== ast classes =====
-class Node(abc.ABC, ChildMixin["Node"]):
-    """
-    The base class for all AST nodes.
 
-    A Node has no specific attributes, but supports all the methods in :class:`~d20.ast.ChildMixin` for traversal.
-    """
+
+class Node(abc.ABC):
+    """The base class for all AST nodes."""
+
+    @property
+    @abc.abstractmethod
+    def children(self) -> Sequence["Node"]:
+        raise NotImplementedError
 
     @abc.abstractmethod
     def __str__(self) -> str:
@@ -142,10 +88,6 @@ class Expression(Node):  # expr
     @property
     def children(self):
         return [self.roll]
-
-    def set_child(self, index: int, value: Node):
-        self._child_set_check(index)
-        self.roll = value
 
     def __str__(self):
         return str(self.roll)
@@ -170,34 +112,25 @@ class Literal(Node):  # literal
     def children(self) -> list[Node]:
         return []
 
-    def set_child(self, index: int, value: Node) -> None:
-        raise ValueError(f"Cannot set the child of a Literal")
-
     def __str__(self):
         return str(self.value)
 
 
 class Parenthetical(Node):
-    __slots__ = ("value", "operations")
+    __slots__ = "value"
 
     value: Node
-    operations: list["Operator"]
 
-    def __init__(self, value: Node, *operations: "Operator"):
+    def __init__(self, value: Node):
         """
         :type value: Node
         """
         super().__init__()
         self.value = value
-        self.operations = list(operations)
 
     @property
     def children(self):
         return [self.value]
-
-    def set_child(self, index: int, value: Node):
-        self._child_set_check(index)
-        self.value = value
 
     def __str__(self):
         return f"({str(self.value)})"
@@ -221,10 +154,6 @@ class UnOp(Node):  # u_num
     @property
     def children(self):
         return [self.value]
-
-    def set_child(self, index: int, value: Node):
-        self._child_set_check(index)
-        self.value = value
 
     def __str__(self):
         return f"{self.op}{str(self.value)}"
@@ -251,13 +180,6 @@ class BinOp(Node):  # a_num, m_num
     @property
     def children(self):
         return [self.left, self.right]
-
-    def set_child(self, index: int, value: Node):
-        self._child_set_check(index)
-        if self.children[index] is self.left:
-            self.left = value  # type: ignore
-        else:
-            self.right = value  # type: ignore
 
     def __str__(self):
         return f"{str(self.left)} {self.op} {str(self.right)}"
@@ -316,32 +238,24 @@ class Selector:  # selector
         return str(self.num)
 
 
-class OperatedDice(Node):  # set
-    __slots__ = ("dice", "operations")
-
-    dice: "Dice"
+class Dice(Node):  # dice_expr
+    num: int
+    size: DiceSize
     operations: list[Operator]
 
-    def __init__(self, dice: "Dice", *operations: Operator):
-        """
-        :type the_set: NumberSet or Dice
-        :type operations: SetOperator
-        """
+    def __init__(self, num: int | Token, size: int | str | Token, *operations: Operator):
         super().__init__()
-        self.dice = dice
+        self.num = int(num)
+        if str(size) == "%":
+            self.size = "%"
+        else:
+            self.size = int(size)
         self.operations = list(operations)
         self._simplify_operations()
 
     @property
-    def children(self):
-        return [self.dice]
-
-    def set_child(self, index: int, value: Node):
-        if not isinstance(value, Dice):
-            raise ValueError(f"Can only set the child of operated dice to a dice!")
-
-        self._child_set_check(index)
-        self.dice = value
+    def children(self) -> list[Node]:
+        return []
 
     def _simplify_operations(self):
         """Simplifies expressions like k1k2k3 into k(1,2,3)."""
@@ -360,36 +274,8 @@ class OperatedDice(Node):  # set
         self.operations = new_operations
 
     def __str__(self):
-        return f"{str(self.dice)}{''.join([str(op) for op in self.operations])}"
-
-
-class Dice(Node):  # dice_expr
-    __slots__ = ("num", "size")
-
-    num: int
-    size: int | typing.Literal["%"]
-
-    def __init__(self, num: int | Token, size: int | str | Token):
-        """
-        :type num: lark.Token or int
-        :type size: lark.Token or int or str
-        """
-        super().__init__()
-        self.num = int(num)
-        if str(size) == "%":
-            self.size = "%"
-        else:
-            self.size = int(size)
-
-    @property
-    def children(self) -> list[Node]:
-        return []
-
-    def set_child(self, index: int, value: Node) -> None:
-        raise ValueError(f"Cannot set the child of a Dice")
-
-    def __str__(self):
-        return f"{self.num}d{self.size}"
+        operations = "".join([str(op) for op in self.operations])
+        return f"{self.num}d{self.size}{operations}"
 
 
 class Parser:

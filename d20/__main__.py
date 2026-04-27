@@ -20,7 +20,7 @@ while True:
         break
 
     try:
-        roll_result = roll(expr)
-        print(str(roll_result))
+        result = roll(expr)
+        print(result.expr)
     except Exception as e:
         print(f"Could not parse '{expr}': {str(e)}")

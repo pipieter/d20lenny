@@ -1,38 +1,44 @@
 import pytest
 
+import d20.diceast as ast
 from d20 import *
-
-STANDARD_EXPRESSIONS = [
-    "1d20",
-    "1d%",
-    "1+1",
-    "4d6kh3",
-    "(1)",
-    "((1d6))",
-    "4*(3d8kh2+9+(9d2e2+3)/2)",
-    "(3d6kl1)",
-    "((10d6kh5)kl2)kh1",
-]
+from d20.roll import RollResult
+from d20.roll.expression import Expression
 
 
 def r(e: str):
     return roll(e).total  # I'm tired of typing roll a bunch of times
 
 
-# high level tests
-def test_rolls_dont_error():
-    for expr in STANDARD_EXPRESSIONS:
-        assert roll(expr)
+@pytest.mark.parametrize(
+    "expr",
+    [
+        "1d20",
+        "1d%",
+        "1+1",
+        "4d6kh3",
+        "(1)",
+        "((1d6))",
+        "4*(3d8kh2+9+(9d2e2+3)/2)",
+        "(3d6kl1)",
+    ],
+)
+def test_rolls_dont_error(expr: str):
+    result = roll(expr)
+    assert isinstance(result, RollResult)
+    assert isinstance(result.expr, str)
+    assert isinstance(result.total, (int, float))
+    assert isinstance(result.ast, ast.Node)
+    assert isinstance(result.result.roll, Expression)
 
 
-def test_roll_types():
-    for expr in STANDARD_EXPRESSIONS:
-        result = roll(expr)
-        assert isinstance(result, RollResult)
-        assert isinstance(result.result, str)
-        assert isinstance(result.total, (int, float))
-        assert isinstance(result.ast, ast.Node)
-        assert isinstance(result.expr, Expression)
+@pytest.mark.parametrize(
+    "expr",
+    ["a", "1d", "1d20+", "*1d20", "1d20ma"],
+)
+def test_invalid_throw_errors(expr: str):
+    with pytest.raises(RollSyntaxError):
+        roll(expr)
 
 
 def test_sane_totals():
@@ -43,7 +49,6 @@ def test_sane_totals():
         assert r("1d%") % 10 == 0
         assert 3 <= r("4d6kh3") <= 18
         assert 1 <= r("(((1d6)))") <= 6
-        assert 1 <= r("((10d6kh5)kl2)kh1") <= 6
 
 
 def test_pemdas():
@@ -73,15 +78,15 @@ def test_crit():
     result = roll("1d20")
     while result.total != 20:
         result = roll("1d20")
-    assert result.crit == CritType.CRIT
+    assert result.crit == Critical.CRIT
 
     while result.total != 1:
         result = roll("1d20")
-    assert result.crit == CritType.FAIL
+    assert result.crit == Critical.FAIL
 
     while result.total == 1 or result.total == 20:
         result = roll("1d20")
-    assert result.crit == CritType.NONE
+    assert result.crit == Critical.NONE
 
 
 # node tests
@@ -207,11 +212,19 @@ def test_red_op(iterations: int):
         assert -4 < r("1d4red") <= 8
 
 
-# modifying the tree directly
 def test_correct_results():
     result = roll("1+2+3")
     assert result.total == 6
-    assert result.result == "1 + 2 + 3 = `6`"
-    result.expr.roll = BinOp(result.expr.roll, "+", Literal(4))
+    assert result.expr == "1 + 2 + 3 = 6"
+
+    result = roll("1+2+3+4")
     assert result.total == 10
-    assert result.result == "1 + 2 + 3 + 4 = `10`"
+    assert result.expr == "1 + 2 + 3 + 4 = 10"
+
+
+def test_no_dice_warnings():
+    result = roll("1d20")
+    assert len(result.warnings) == 0
+
+    result = roll("20")
+    assert len(result.warnings) == 1
