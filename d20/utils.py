@@ -1,6 +1,6 @@
 from . import diceast as ast
-from .roll import expression
 from .enums import AdvType, CritType
+from .roll import expression
 
 
 def find_d20(node: ast.Node) -> ast.Dice | ast.OperatedDice | None:

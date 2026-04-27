@@ -1,8 +1,8 @@
 import pytest
 
 import d20
-from d20 import parse
 import d20.utils as utils
+from d20 import parse
 
 
 @pytest.mark.parametrize(

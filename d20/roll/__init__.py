@@ -6,11 +6,10 @@ from typing import Callable, Optional, Type
 
 from .expression import BinOp, Dice, Expression, Literal, Number, OperatedDice, Parenthetical, UnOp
 from .stringifier import SimpleStringifier, Stringifier
-from .. import diceast as ast
-from ..enums import AdvType, CritType
+from .. import diceast as ast, utils
 from ..context import RollContext
+from ..enums import AdvType, CritType
 from ..rand import random_impl
-from .. import utils
 
 
 class RollResult:
