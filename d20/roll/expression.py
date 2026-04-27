@@ -1,24 +1,22 @@
 import abc
 import math
 from collections.abc import Callable, Mapping
-from typing import Generic, Sequence, TypeVar
+from typing import Sequence
 
 from .. import diceast as ast, errors as errors
 from ..context import RollContext
 from ..diceast import Node as ASTNode
 
-TNode = TypeVar("TNode", bound=ast.Node, covariant=True)
-
 # region ===== Number ======
 
 
-class Number(Generic[TNode], abc.ABC):
+class Number(abc.ABC):
     """The base class for all rolled values."""
 
-    ast: TNode
+    _ast: ast.Node
 
-    def __init__(self, ast: TNode) -> None:
-        self.ast = ast
+    def __init__(self, ast: ast.Node) -> None:
+        self._ast = ast
 
     @property
     @abc.abstractmethod
@@ -28,7 +26,7 @@ class Number(Generic[TNode], abc.ABC):
 
     @property
     @abc.abstractmethod
-    def children(self) -> Sequence["Number[ast.Node]"]:
+    def children(self) -> Sequence["Number"]:
         """The children of the node."""
         raise NotImplementedError
 
@@ -38,11 +36,11 @@ class Number(Generic[TNode], abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def copy(self) -> "Number[TNode]":
+    def copy(self) -> "Number":
         raise NotImplementedError
 
-    def find_from_ast(self, ast: ASTNode) -> "Number[ASTNode] | None":
-        if self.ast == ast:
+    def find_from_ast(self, ast: ASTNode) -> "Number | None":
+        if self._ast == ast:
             return self
 
         for child in self.children:
@@ -53,12 +51,12 @@ class Number(Generic[TNode], abc.ABC):
         return None
 
 
-class Expression(Number[ast.Expression]):
+class Expression(Number):
     """Expressions are usually the root of all Number trees."""
 
-    roll: Number[ast.Node]
+    roll: Number
 
-    def __init__(self, roll: Number[ast.Node], ast: ast.Expression) -> None:
+    def __init__(self, roll: Number, ast: ast.Node) -> None:
         super().__init__(ast)
         self.roll = roll
 
@@ -67,22 +65,22 @@ class Expression(Number[ast.Expression]):
         return self.roll.total
 
     @property
-    def children(self) -> Sequence[Number[ast.Node]]:
+    def children(self) -> Sequence[Number]:
         return [self.roll]
 
     def __repr__(self) -> str:
         return f"<Expression roll={repr(self.roll)}/>"
 
     def copy(self) -> "Expression":
-        return Expression(self.roll.copy(), self.ast)
+        return Expression(self.roll.copy(), self._ast)
 
 
-class Literal(Number[ast.Literal]):
+class Literal(Number):
     """A literal integer or float."""
 
     value: int | float
 
-    def __init__(self, value: int | float, ast: ast.Literal) -> None:
+    def __init__(self, value: int | float, ast: ast.Node) -> None:
         super().__init__(ast)
         self.value = value
 
@@ -91,22 +89,22 @@ class Literal(Number[ast.Literal]):
         return math.floor(self.value)
 
     @property
-    def children(self) -> Sequence[Number[ast.Node]]:
+    def children(self) -> Sequence[Number]:
         return []
 
     def __repr__(self) -> str:
         return f"<Literal value={self.value}/>"
 
     def copy(self) -> "Literal":
-        return Literal(self.value, self.ast)
+        return Literal(self.value, self._ast)
 
 
-class Parenthetical(Number[ast.Parenthetical]):
+class Parenthetical(Number):
     """Represents a value inside parentheses."""
 
-    value: Number[ast.Node]
+    value: Number
 
-    def __init__(self, value: Number[ast.Node], ast: ast.Parenthetical) -> None:
+    def __init__(self, value: Number, ast: ast.Node) -> None:
         super().__init__(ast)
         self.value = value
 
@@ -115,23 +113,23 @@ class Parenthetical(Number[ast.Parenthetical]):
         return self.value.total
 
     @property
-    def children(self) -> Sequence[Number[ast.Node]]:
+    def children(self) -> Sequence[Number]:
         return [self.value]
 
     def __repr__(self) -> str:
         return f"<Parenthetical value={repr(self.value)}/>"
 
     def copy(self) -> "Parenthetical":
-        return Parenthetical(self.value.copy(), self.ast)
+        return Parenthetical(self.value.copy(), self._ast)
 
 
-class UnOp(Number[ast.UnOp]):
+class UnOp(Number):
     """Represents a unary operation."""
 
     op: str  # TODO typing.Literal["+", "-"]
-    value: Number[ast.Node]
+    value: Number
 
-    def __init__(self, op: str, value: Number[ast.Node], ast: ast.UnOp) -> None:
+    def __init__(self, op: str, value: Number, ast: ast.Node) -> None:
         super().__init__(ast)
         self.op = op
         self.value = value
@@ -144,22 +142,22 @@ class UnOp(Number[ast.UnOp]):
             return self.value.total
 
     @property
-    def children(self) -> Sequence[Number[ast.Node]]:
+    def children(self) -> Sequence[Number]:
         return [self.value]
 
     def __repr__(self) -> str:
         return f"<UnOp op={self.op} value={repr(self.value)}/>"
 
     def copy(self) -> "UnOp":
-        return UnOp(self.op, self.value.copy(), self.ast)
+        return UnOp(self.op, self.value.copy(), self._ast)
 
 
-class BinOp(Number[ast.BinOp]):
+class BinOp(Number):
     """Represents a binary operation."""
 
     op: str
-    left: Number[ast.Node]
-    right: Number[ast.Node]
+    left: Number
+    right: Number
 
     BINARY_OPS: Mapping[str, Callable[[int | float, int | float], int | float]] = {
         "+": lambda l, r: l + r,
@@ -176,7 +174,7 @@ class BinOp(Number[ast.BinOp]):
         "!=": lambda l, r: int(l != r),
     }
 
-    def __init__(self, left: Number[ast.Node], op: str, right: Number[ast.Node], ast: ast.BinOp) -> None:
+    def __init__(self, left: Number, op: str, right: Number, ast: ast.Node) -> None:
         super().__init__(ast)
         self.op = op
         self.left = left
@@ -194,14 +192,14 @@ class BinOp(Number[ast.BinOp]):
             raise errors.RollValueError("Cannot divide by zero.")
 
     @property
-    def children(self) -> Sequence[Number[ast.Node]]:
+    def children(self) -> Sequence[Number]:
         return [self.left, self.right]
 
     def __repr__(self) -> str:
         return f"<BinOp op={self.op} left={repr(self.left)} right={repr(self.right)}/>"
 
     def copy(self) -> "BinOp":
-        return BinOp(self.left.copy(), self.op, self.right.copy(), self.ast)
+        return BinOp(self.left.copy(), self.op, self.right.copy(), self._ast)
 
 
 class Die:
@@ -257,7 +255,7 @@ class Die:
         return Die(value=[*self.values], size=self.size, context=self._context, kept=self.kept, exploded=self.exploded)
 
 
-class Dice(Number[ast.Dice]):
+class Dice(Number):
     """Represents a set of dice."""
 
     dice: list[Die]
@@ -265,7 +263,7 @@ class Dice(Number[ast.Dice]):
     size: ast.DiceSize
     _context: RollContext
 
-    def __init__(self, dice: list[Die], num: int, size: ast.DiceSize, ast: ast.Dice, context: RollContext) -> None:
+    def __init__(self, dice: list[Die], num: int, size: ast.DiceSize, ast: ast.Node, context: RollContext) -> None:
         super().__init__(ast)
         self.dice = dice
         self._context = context
@@ -290,7 +288,7 @@ class Dice(Number[ast.Dice]):
         return sum(die.value for die in self.dice)
 
     @property
-    def children(self) -> Sequence[Number[ast.Node]]:
+    def children(self) -> Sequence[Number]:
         return []
 
     def __repr__(self) -> str:
@@ -298,10 +296,10 @@ class Dice(Number[ast.Dice]):
 
     def copy(self) -> "Dice":
         dice = [die.copy() for die in self.dice]
-        return Dice(dice, self.num, self.size, self.ast, self._context)
+        return Dice(dice, self.num, self.size, self._ast, self._context)
 
 
-class OperatedDice(Number[ast.OperatedDice]):
+class OperatedDice(Number):
     """Represents a set of dice with operations."""
 
     dice: list[Die]
@@ -316,7 +314,7 @@ class OperatedDice(Number[ast.OperatedDice]):
         num: int,
         size: ast.DiceSize,
         operators: list["Operator"],
-        ast: ast.OperatedDice,
+        ast: ast.Node,
         context: RollContext,
     ) -> None:
         super().__init__(ast)
@@ -357,7 +355,7 @@ class OperatedDice(Number[ast.OperatedDice]):
         return sum(die.value for die in self.keptset)
 
     @property
-    def children(self) -> Sequence[Number[ast.Node]]:
+    def children(self) -> Sequence[Number]:
         return []
 
     @property
@@ -373,7 +371,7 @@ class OperatedDice(Number[ast.OperatedDice]):
 
     def copy(self) -> "OperatedDice":
         dice = [die.copy() for die in self.dice]
-        return OperatedDice(dice, self.num, self.size, self.operators, self.ast, self._context)
+        return OperatedDice(dice, self.num, self.size, self.operators, self._ast, self._context)
 
 
 # endregion ====== Number ======

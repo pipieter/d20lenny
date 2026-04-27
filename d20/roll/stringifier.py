@@ -14,7 +14,7 @@ class Stringifier(abc.ABC):
     """
 
     def __init__(self):
-        self._nodes: Mapping[Type[Number[ast.Node]], Callable[[Any], str]] = {
+        self._nodes: Mapping[Type[Number], Callable[[Any], str]] = {
             Expression: self._str_expression,
             Literal: self._str_literal,
             UnOp: self._str_unop,
@@ -24,7 +24,7 @@ class Stringifier(abc.ABC):
             OperatedDice: self._str_operated_dice,
         }
 
-    def stringify(self, roll: Number[ast.Node]) -> str:
+    def stringify(self, roll: Number) -> str:
         """
         Transforms a rolled expression into a string recursively, bottom-up.
 
@@ -34,7 +34,7 @@ class Stringifier(abc.ABC):
         """
         return self._stringify(roll)
 
-    def _stringify(self, node: Number[ast.Node]) -> str:
+    def _stringify(self, node: Number) -> str:
         """
         Called on each node that needs to be stringified.
 

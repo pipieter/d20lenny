@@ -20,8 +20,8 @@ class RollResult:
     def __init__(
         self,
         ast: ast.Node,
-        rolls: list[Number[ast.Node]],
-        result: Number[ast.Node],
+        rolls: list[Number],
+        result: Number,
         context: RollContext,
         stringifier: Stringifier,
         warnings: list[str],
@@ -63,7 +63,7 @@ class Roller:
     """The main class responsible for parsing dice into an AST and evaluating that AST."""
 
     def __init__(self, rng: random.Random = random_impl):
-        self._nodes: Mapping[Type[ast.Node], Callable[[ast.Node, RollContext], Number[ast.Node]]] = {  # type: ignore
+        self._nodes: Mapping[Type[ast.Node], Callable[[ast.Node, RollContext], Number]] = {  # type: ignore
             ast.Expression: self._eval_expression,
             ast.Literal: self._eval_literal,
             ast.Parenthetical: self._eval_parenthetical,
@@ -117,7 +117,7 @@ class Roller:
         )
 
     # evaluator
-    def _eval(self, node: ast.Node, context: RollContext) -> Number[ast.Node]:
+    def _eval(self, node: ast.Node, context: RollContext) -> Number:
         handler = self._nodes[type(node)]
         return handler(node, context)
 

@@ -50,7 +50,7 @@ def find_d20(node: ast.Node) -> ast.Dice | None:
     raise NotImplementedError(f"find_d20 not implemented for {type(node)}")
 
 
-def determine_crit_type(node: expression.Number[ast.Node] | None) -> CritType:
+def determine_crit_type(node: expression.Number | None) -> CritType:
     if isinstance(node, expression.Dice):
         dice = node.dice
     elif isinstance(node, expression.OperatedDice):
@@ -70,7 +70,7 @@ def determine_crit_type(node: expression.Number[ast.Node] | None) -> CritType:
     return CritType.NONE
 
 
-def determine_final_roll(rolls: list[expression.Number[ast.Node]], advantage: AdvType) -> expression.Number[ast.Node]:
+def determine_final_roll(rolls: list[expression.Number], advantage: AdvType) -> expression.Number:
     match advantage.value:
         case AdvType.NONE.value:
             return rolls[0]
@@ -92,7 +92,7 @@ def determine_final_roll(rolls: list[expression.Number[ast.Node]], advantage: Ad
             return roll
 
 
-def copy_number_with_d20_rerolled(roll: expression.Number[ast.Node], d20: ast.Node) -> expression.Number[ast.Node]:
+def copy_number_with_d20_rerolled(roll: expression.Number, d20: ast.Node) -> expression.Number:
     copy = roll.copy()
     d20_number = copy.find_from_ast(d20)
     if d20_number is None:
