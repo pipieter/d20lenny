@@ -42,7 +42,7 @@ class RollTransformer(Transformer[Any, Any]):
 
     def dice(self, opdice: Any):
         dice, *operations = opdice
-        return OperatedDice(dice.num, dice.size, *operations)
+        return Dice(dice.num, dice.size, *operations)
 
     def dice_op(self, opsel: Any):
         return Operator.new(*opsel)
@@ -239,44 +239,23 @@ class Selector:  # selector
 
 
 class Dice(Node):  # dice_expr
-    __slots__ = ("num", "size")
-
     num: int
     size: DiceSize
+    operations: list[Operator]
 
-    def __init__(self, num: int | Token, size: int | str | Token):
-        """
-        :type num: lark.Token or int
-        :type size: lark.Token or int or str
-        """
+    def __init__(self, num: int | Token, size: int | str | Token, *operations: Operator):
         super().__init__()
         self.num = int(num)
         if str(size) == "%":
             self.size = "%"
         else:
             self.size = int(size)
+        self.operations = list(operations)
+        self._simplify_operations()
 
     @property
     def children(self) -> list[Node]:
         return []
-
-    def __str__(self):
-        return f"{self.num}d{self.size}"
-
-
-class OperatedDice(Dice):
-    __slots__ = "operations"
-
-    operations: list[Operator]
-
-    def __init__(self, num: int | Token, size: int | str | Token, *operations: Operator):
-        """
-        :type the_set: NumberSet or Dice
-        :type operations: SetOperator
-        """
-        super().__init__(num, size)
-        self.operations = list(operations)
-        self._simplify_operations()
 
     def _simplify_operations(self):
         """Simplifies expressions like k1k2k3 into k(1,2,3)."""

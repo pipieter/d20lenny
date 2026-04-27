@@ -1,7 +1,7 @@
 import abc
 from typing import Any, Callable, Mapping, Type
 
-from .expression import BinOp, Dice, Die, Expression, Literal, Number, OperatedDice, Parenthetical, UnOp
+from .expression import BinOp, Dice, Die, Expression, Literal, Number, Parenthetical, UnOp
 from .. import diceast as ast
 
 __all__ = ("Stringifier", "SimpleStringifier")
@@ -21,7 +21,6 @@ class Stringifier(abc.ABC):
             BinOp: self._str_binop,
             Parenthetical: self._str_parenthetical,
             Dice: self._str_dice,
-            OperatedDice: self._str_operated_dice,
         }
 
     def stringify(self, roll: Number) -> str:
@@ -99,15 +98,6 @@ class Stringifier(abc.ABC):
         """
         raise NotImplementedError
 
-    @abc.abstractmethod
-    def _str_operated_dice(self, node: OperatedDice) -> str:
-        """
-        :param node: The node to stringify.
-        :type node: d20.Die
-        :rtype: str
-        """
-        raise NotImplementedError
-
 
 class SimpleStringifier(Stringifier):
     """
@@ -130,10 +120,6 @@ class SimpleStringifier(Stringifier):
         return f"({self._stringify(node.value)})"
 
     def _str_dice(self, node: Dice):
-        dice = [self._str_die(die, node.size) for die in node.dice]
-        return f"{node.num}d{node.size} ({', '.join(dice)})"
-
-    def _str_operated_dice(self, node: OperatedDice):
         dice = [self._str_die(die, node.size) for die in node.dice]
         operators = "".join(str(op) for op in node.operators)
         return f"{node.num}d{node.size}{operators} ({', '.join(dice)})"

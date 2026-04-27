@@ -14,7 +14,7 @@ def find_d20(node: ast.Node) -> ast.Dice | None:
         NotImplementedError: If an unknown node type is encountered.
 
     Returns:
-        ast.Dice | None: A dice or operated dice object representing the d20, or None if none could be found.
+        ast.Dice | None: A dice object representing the d20, or None if none could be found.
     """
     if isinstance(node, ast.Expression):
         return find_d20(node.roll)
@@ -52,8 +52,6 @@ def find_d20(node: ast.Node) -> ast.Dice | None:
 
 def determine_crit_type(node: expression.Number | None) -> CritType:
     if isinstance(node, expression.Dice):
-        dice = node.dice
-    elif isinstance(node, expression.OperatedDice):
         dice = node.keptset
     else:
         return CritType.NONE
@@ -98,7 +96,7 @@ def copy_number_with_d20_rerolled(roll: expression.Number, d20: ast.Node) -> exp
     if d20_number is None:
         return copy
 
-    if not isinstance(d20_number, (expression.OperatedDice, expression.Dice)):
+    if not isinstance(d20_number, expression.Dice):
         return copy
 
     d20_number.dice[0].reroll()

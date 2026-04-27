@@ -261,50 +261,6 @@ class Dice(Number):
     dice: list[Die]
     num: int
     size: ast.DiceSize
-    _context: RollContext
-
-    def __init__(self, dice: list[Die], num: int, size: ast.DiceSize, ast: ast.Node, context: RollContext) -> None:
-        super().__init__(ast)
-        self.dice = dice
-        self._context = context
-
-        self.num = num
-        self.size = size
-
-    @classmethod
-    def new(cls, ast: ast.Dice, context: RollContext) -> "Dice":
-        num = ast.num
-        size = ast.size
-        dice: list[Die] = []
-
-        for _ in range(num):
-            die = Die.new(size, context)
-            dice.append(die)
-
-        return cls(dice, num, size, ast, context)
-
-    @property
-    def total(self) -> int:
-        return sum(die.value for die in self.dice)
-
-    @property
-    def children(self) -> Sequence[Number]:
-        return []
-
-    def __repr__(self) -> str:
-        return f"<OperatedDice num={self.num} size={self.size} />"
-
-    def copy(self) -> "Dice":
-        dice = [die.copy() for die in self.dice]
-        return Dice(dice, self.num, self.size, self._ast, self._context)
-
-
-class OperatedDice(Number):
-    """Represents a set of dice with operations."""
-
-    dice: list[Die]
-    num: int
-    size: ast.DiceSize
     operators: list["Operator"]
     _context: RollContext
 
@@ -318,15 +274,15 @@ class OperatedDice(Number):
         context: RollContext,
     ) -> None:
         super().__init__(ast)
-
         self.dice = dice
+        self._context = context
+
         self.num = num
         self.size = size
         self.operators = operators
-        self._context = context
 
     @classmethod
-    def new(cls, ast: ast.OperatedDice, context: RollContext) -> "OperatedDice":
+    def new(cls, ast: ast.Dice, context: RollContext) -> "Dice":
         num = ast.num
         size = ast.size
         dice: list[Die] = []
@@ -342,13 +298,9 @@ class OperatedDice(Number):
 
         return result
 
-    def roll_another(self, negative: bool = False):
-        die = Die.new(self.size, self._context)
-
-        if negative:
-            die.set_value(-die.value)
-
-        self.dice.append(die)
+    @property
+    def keptset(self) -> Sequence[Die]:
+        return [die for die in self.dice if die.kept]
 
     @property
     def total(self) -> int:
@@ -358,20 +310,24 @@ class OperatedDice(Number):
     def children(self) -> Sequence[Number]:
         return []
 
-    @property
-    def keptset(self) -> Sequence[Die]:
-        return [die for die in self.dice if die.kept]
+    def roll_another(self, negative: bool = False):
+        die = Die.new(self.size, self._context)
+
+        if negative:
+            die.set_value(-die.value)
+
+        self.dice.append(die)
 
     def operate(self, operator: "Operator"):
         operator.operate(self)
 
     def __repr__(self) -> str:
         operators = "".join(repr(operator) for operator in self.operators)
-        return f"<OperatedDice num={self.num} size={self.size} operators={operators}/>"
+        return f"<Dice num={self.num} size={self.size} operators={operators} total={self.total}/>"
 
-    def copy(self) -> "OperatedDice":
+    def copy(self) -> "Dice":
         dice = [die.copy() for die in self.dice]
-        return OperatedDice(dice, self.num, self.size, self.operators, self._ast, self._context)
+        return Dice(dice, self.num, self.size, self.operators, self._ast, self._context)
 
 
 # endregion ====== Number ======
@@ -393,8 +349,8 @@ class Operator:
         sels = [Selector.from_ast(sel) for sel in ast.sels]
         return cls(op, sels)
 
-    def operate(self, target: OperatedDice) -> None:
-        operations: Mapping[str, Callable[[OperatedDice], None]] = {
+    def operate(self, target: Dice) -> None:
+        operations: Mapping[str, Callable[[Dice], None]] = {
             # set only
             "k": self.keep,
             "p": self.drop,
@@ -412,7 +368,7 @@ class Operator:
 
         operations[self.op](target)
 
-    def select(self, target: OperatedDice) -> set[Die]:
+    def select(self, target: Dice) -> set[Die]:
         """Selects the operands in a target set."""
 
         out: set[Die] = set()
@@ -421,16 +377,16 @@ class Operator:
 
         return out
 
-    def keep(self, target: OperatedDice):
+    def keep(self, target: Dice):
         for value in target.keptset:
             if value not in self.select(target):
                 value.drop()
 
-    def drop(self, target: OperatedDice):
+    def drop(self, target: Dice):
         for value in self.select(target):
             value.drop()
 
-    def reroll(self, target: OperatedDice):
+    def reroll(self, target: Dice):
         to_reroll = self.select(target)
 
         while to_reroll:
@@ -439,11 +395,11 @@ class Operator:
 
             to_reroll = self.select(target)
 
-    def reroll_once(self, target: OperatedDice):
+    def reroll_once(self, target: Dice):
         for die in self.select(target):
             die.reroll()
 
-    def explode(self, target: OperatedDice):
+    def explode(self, target: Dice):
         to_explode = self.select(target)
         already_exploded: set[Die] = set()
 
@@ -456,21 +412,21 @@ class Operator:
             already_exploded.update(to_explode)
             to_explode = (self.select(target)).difference(already_exploded)
 
-    def explode_once(self, target: OperatedDice):
+    def explode_once(self, target: Dice):
         for die in self.select(target):
             if not die.exploded:
                 die.explode()
                 target.roll_another()
                 return
 
-    def reroll_and_subtract(self, target: OperatedDice):
+    def reroll_and_subtract(self, target: Dice):
         for die in self.select(target):
             if not die.exploded:
                 die.explode()
                 target.roll_another(negative=True)
                 return
 
-    def explode_red(self, target: OperatedDice):
+    def explode_red(self, target: Dice):
         if target.size == "%":
             size = 100
         else:
@@ -485,7 +441,7 @@ class Operator:
         if rs_count > 0:
             target.roll_another(negative=True)
 
-    def minimum(self, target: OperatedDice):
+    def minimum(self, target: Dice):
         """
         :type target: Dice
         """
@@ -497,7 +453,7 @@ class Operator:
             if die.value < the_min:
                 die.set_value(the_min)
 
-    def maximum(self, target: OperatedDice):
+    def maximum(self, target: Dice):
         """
         :type target: Dice
         """
@@ -534,25 +490,25 @@ class Selector:
         num = ast.num
         return cls(cat, num)
 
-    def select(self, target: OperatedDice) -> set[Die]:
+    def select(self, target: Dice) -> set[Die]:
         selectors = {"l": self.lowestn, "h": self.highestn, "<": self.lessthan, ">": self.morethan, None: self.literal}
         selected = selectors[self.cat](target)
 
         return set(selected)
 
-    def lowestn(self, target: OperatedDice):
+    def lowestn(self, target: Dice):
         return sorted(target.keptset, key=lambda n: n.value)[: self.num]
 
-    def highestn(self, target: OperatedDice):
+    def highestn(self, target: Dice):
         return sorted(target.keptset, key=lambda n: n.value, reverse=True)[: self.num]
 
-    def lessthan(self, target: OperatedDice):
+    def lessthan(self, target: Dice):
         return [n for n in target.keptset if n.value < self.num]
 
-    def morethan(self, target: OperatedDice):
+    def morethan(self, target: Dice):
         return [n for n in target.keptset if n.value > self.num]
 
-    def literal(self, target: OperatedDice):
+    def literal(self, target: Dice):
         return [n for n in target.keptset if n.value == self.num]
 
     def __str__(self):

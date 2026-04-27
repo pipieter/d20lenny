@@ -1,32 +1,32 @@
 import pytest
 
-import d20
+from d20 import diceast as ast
 import d20.utils as utils
 from d20 import parse
 
 
 @pytest.mark.parametrize(
-    "has_d20,type,expr",
+    "has_d20,expr",
     [
-        (True, d20.ast.Dice, "1d20+3"),
-        (True, d20.ast.Dice, "1d20+1d4+3"),
-        (True, d20.ast.Dice, "1d10+1d20"),
-        (True, d20.ast.Dice, "1d20+1d20"),
-        (True, d20.ast.Dice, "(1d20+1d20)+3"),
-        (True, d20.ast.Dice, "1d20+1d20mi2"),
-        (True, d20.ast.OperatedDice, "(1d20*1d20)+1d20mi2"),
-        (True, d20.ast.OperatedDice, "1d20mi2"),
-        (True, d20.ast.OperatedDice, "1d20mi2+1d20"),
-        (False, None, "1d20*4"),
-        (False, None, "2d20"),
+        (True, "1d20+3"),
+        (True, "1d20+1d4+3"),
+        (True, "1d10+1d20"),
+        (True, "1d20+1d20"),
+        (True, "(1d20+1d20)+3"),
+        (True, "1d20+1d20mi2"),
+        (True, "(1d20*1d20)+1d20mi2"),
+        (True, "1d20mi2"),
+        (True, "1d20mi2+1d20"),
+        (False, "1d20*4"),
+        (False, "2d20"),
     ],
 )
-def test_context_d20(has_d20: bool, type: type, expr: str):
+def test_context_d20(has_d20: bool, expr: str):
     tree = parse(expr)
     d20 = utils.find_d20(tree)
 
     if has_d20:
         assert d20 is not None
-        assert isinstance(d20, type)
+        assert isinstance(d20, ast.Dice)
     else:
         assert d20 is None

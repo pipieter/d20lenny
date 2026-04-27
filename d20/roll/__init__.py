@@ -4,7 +4,7 @@ import random
 from collections.abc import Mapping
 from typing import Callable, Optional, Type
 
-from .expression import BinOp, Dice, Expression, Literal, Number, OperatedDice, Parenthetical, UnOp
+from .expression import BinOp, Dice, Expression, Literal, Number, Parenthetical, UnOp
 from .stringifier import SimpleStringifier, Stringifier
 from .. import diceast as ast, utils
 from ..context import RollContext
@@ -69,7 +69,6 @@ class Roller:
             ast.Parenthetical: self._eval_parenthetical,
             ast.UnOp: self._eval_unop,
             ast.BinOp: self._eval_binop,
-            ast.OperatedDice: self._eval_operateddice,
             ast.Dice: self._eval_dice,
         }
         self.rng = rng
@@ -135,9 +134,6 @@ class Roller:
 
     def _eval_binop(self, node: ast.BinOp, context: RollContext) -> BinOp:
         return BinOp(self._eval(node.left, context), node.op, self._eval(node.right, context), node)
-
-    def _eval_operateddice(self, node: ast.OperatedDice, context: RollContext) -> OperatedDice:
-        return OperatedDice.new(node, context)
 
     def _eval_dice(self, node: ast.Dice, context: RollContext) -> Dice:
         return Dice.new(node, context)
