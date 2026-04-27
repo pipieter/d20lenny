@@ -41,7 +41,8 @@ class RollTransformer(Transformer[Any, Any]):
         return Parenthetical(*num)
 
     def dice(self, opdice: Any):
-        return OperatedDice(*opdice)
+        dice, *operations = opdice
+        return OperatedDice(dice.num, dice.size, *operations)
 
     def dice_op(self, opsel: Any):
         return Operator.new(*opsel)
@@ -237,46 +238,6 @@ class Selector:  # selector
         return str(self.num)
 
 
-class OperatedDice(Node):  # set
-    __slots__ = ("dice", "operations")
-
-    dice: "Dice"
-    operations: list[Operator]
-
-    def __init__(self, dice: "Dice", *operations: Operator):
-        """
-        :type the_set: NumberSet or Dice
-        :type operations: SetOperator
-        """
-        super().__init__()
-        self.dice = dice
-        self.operations = list(operations)
-        self._simplify_operations()
-
-    @property
-    def children(self):
-        return [self.dice]
-
-    def _simplify_operations(self):
-        """Simplifies expressions like k1k2k3 into k(1,2,3)."""
-        new_operations: list[Operator] = []
-
-        for operation in self.operations:
-            if operation.op in Operator.IMMEDIATE or not new_operations:
-                new_operations.append(operation)
-            else:
-                last_op = new_operations[-1]
-                if operation.op == last_op.op:
-                    last_op.add_sels(operation.sels)
-                else:
-                    new_operations.append(operation)
-
-        self.operations = new_operations
-
-    def __str__(self):
-        return f"{str(self.dice)}{''.join([str(op) for op in self.operations])}"
-
-
 class Dice(Node):  # dice_expr
     __slots__ = ("num", "size")
 
@@ -301,6 +262,41 @@ class Dice(Node):  # dice_expr
 
     def __str__(self):
         return f"{self.num}d{self.size}"
+
+
+class OperatedDice(Dice):
+    __slots__ = "operations"
+
+    operations: list[Operator]
+
+    def __init__(self, num: int | Token, size: int | str | Token, *operations: Operator):
+        """
+        :type the_set: NumberSet or Dice
+        :type operations: SetOperator
+        """
+        super().__init__(num, size)
+        self.operations = list(operations)
+        self._simplify_operations()
+
+    def _simplify_operations(self):
+        """Simplifies expressions like k1k2k3 into k(1,2,3)."""
+        new_operations: list[Operator] = []
+
+        for operation in self.operations:
+            if operation.op in Operator.IMMEDIATE or not new_operations:
+                new_operations.append(operation)
+            else:
+                last_op = new_operations[-1]
+                if operation.op == last_op.op:
+                    last_op.add_sels(operation.sels)
+                else:
+                    new_operations.append(operation)
+
+        self.operations = new_operations
+
+    def __str__(self):
+        operations = "".join([str(op) for op in self.operations])
+        return f"{self.num}d{self.size}{operations}"
 
 
 class Parser:

@@ -3,7 +3,7 @@ from .enums import AdvType, CritType
 from .roll import expression
 
 
-def find_d20(node: ast.Node) -> ast.Dice | ast.OperatedDice | None:
+def find_d20(node: ast.Node) -> ast.Dice | None:
     """
     Find the first fitting node that represents a d20 in a standard d20 plus modifiers roll.
 
@@ -14,7 +14,7 @@ def find_d20(node: ast.Node) -> ast.Dice | ast.OperatedDice | None:
         NotImplementedError: If an unknown node type is encountered.
 
     Returns:
-        ast.Dice | ast.OperatedDice | None: A dice or operated dice object representing the d20, or None if none could be found.
+        ast.Dice | None: A dice or operated dice object representing the d20, or None if none could be found.
     """
     if isinstance(node, ast.Expression):
         return find_d20(node.roll)
@@ -40,11 +40,6 @@ def find_d20(node: ast.Node) -> ast.Dice | ast.OperatedDice | None:
         if right is not None:
             return right
 
-        return None
-
-    if isinstance(node, ast.OperatedDice):
-        if node.dice.num == 1 and node.dice.size == 20:
-            return node
         return None
 
     if isinstance(node, ast.Dice):

@@ -329,8 +329,8 @@ class OperatedDice(Number[ast.OperatedDice]):
 
     @classmethod
     def new(cls, ast: ast.OperatedDice, context: RollContext) -> "OperatedDice":
-        num = ast.dice.num
-        size = ast.dice.size
+        num = ast.num
+        size = ast.size
         dice: list[Die] = []
         operators = [Operator.from_ast(op) for op in ast.operations]
 
