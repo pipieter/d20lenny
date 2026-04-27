@@ -88,9 +88,9 @@ def test_crit():
         result = roll("1d20")
     assert result.roll.crit == Critical.NONE
 
-    result = roll("1d20+3")
+    result = roll("1d20+1d4+3")
     while result.total != 20:
-        result = roll("1d20+3")
+        result = roll("1d20+1d4+3")
     assert result.roll.crit == Critical.DIRTY
 
 
