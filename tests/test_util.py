@@ -2,11 +2,11 @@ import pytest
 
 import d20
 from d20 import parse
-from d20.context import Context
+import d20.utils as utils
 
 
 @pytest.mark.parametrize(
-    "d20,type,expr",
+    "has_d20,type,expr",
     [
         (True, d20.ast.Dice, "1d20+3"),
         (True, d20.ast.Dice, "1d20+1d4+3"),
@@ -21,12 +21,12 @@ from d20.context import Context
         (False, None, "2d20"),
     ],
 )
-def test_context_d20(d20: bool, type: type, expr: str):
+def test_context_d20(has_d20: bool, type: type, expr: str):
     tree = parse(expr)
-    context = Context(tree)
+    d20 = utils.find_d20(tree)
 
-    if d20:
-        assert context.d20 is not None
-        assert isinstance(context.d20, type)
+    if has_d20:
+        assert d20 is not None
+        assert isinstance(d20, type)
     else:
-        assert context.d20 is None
+        assert d20 is None
