@@ -1,8 +1,7 @@
 import pytest
 
-from d20 import diceast as ast
 import d20.utils as utils
-from d20 import parse
+from d20 import diceast as ast, parse
 
 
 @pytest.mark.parametrize(
