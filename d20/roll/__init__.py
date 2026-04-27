@@ -10,6 +10,7 @@ from .. import diceast as ast
 from ..enums import AdvType, CritType
 from ..context import RollContext
 from ..rand import random_impl
+from .. import utils
 
 
 class RollResult:
@@ -25,6 +26,7 @@ class RollResult:
         context: RollContext,
         stringifier: Stringifier,
         warnings: list[str],
+        crit: CritType,
     ):
         """
         :type the_ast: ast.Node
@@ -37,44 +39,11 @@ class RollResult:
         self.context = context
         self.stringifier = stringifier
         self.warnings = warnings
+        self.crit = crit
 
     @property
     def total(self) -> int | float:
         return self.result.total
-
-    @property
-    def crit(self) -> CritType:
-        """
-        If the leftmost node was Xd20kh1, returns :class:`CritType.CRIT` if the roll was a 20 and
-        :class:`CritType.FAIL` if the roll was a 1.
-        Returns :class:`CritType.NONE` otherwise.
-
-        :rtype: CritType
-        """
-
-        d20 = self.context.d20
-        if d20 is None:
-            return CritType.NONE
-
-        node = self.result.find_from_ast(d20)
-
-        if isinstance(node, Dice):
-            dice = node.dice
-        elif isinstance(node, OperatedDice):
-            dice = node.keptset
-        else:
-            return CritType.NONE
-
-        if len(dice) != 1 or node.size != 20:
-            return CritType.NONE
-
-        if dice[0].value == 1:
-            return CritType.FAIL
-
-        if dice[0].value == 20:
-            return CritType.CRIT
-
-        return CritType.NONE
 
     @property
     def expr(self) -> str:
@@ -87,7 +56,7 @@ class RollResult:
         return self.total
 
     def __repr__(self):
-        return f"<RollResult total={self.total}>"
+        return f"<RollResult total={self.total}/>"
 
 
 # noinspection PyMethodMayBeStatic
@@ -116,22 +85,27 @@ class Roller:
         if stringifier is None:
             stringifier = SimpleStringifier()
 
-        context = RollContext(node, self.rng)
+        d20 = utils.find_d20(node)
+        context = RollContext(self.rng)
         warnings: list[str] = []
 
         roll = self._eval(node, context)
         rolls = [roll]
 
         if advantage != AdvType.NONE:
-            d20 = context.d20
             if d20 is None:
                 warnings.append(f"Rolled with {advantage.name}, but expression did not contain a valid d20.")
             else:
                 for _ in range(advantage.rolls - 1):
-                    copy = self._copy_with_d20_rerolled(roll, d20)
+                    copy = utils.copy_number_with_d20_rerolled(roll, d20)
                     rolls.append(copy)
 
-        result = self._get_advantage_roll(rolls, advantage)
+        result = utils.determine_final_roll(rolls, advantage)
+        crit = CritType.NONE
+
+        if d20:
+            result_d20 = result.find_from_ast(d20)
+            crit = utils.determine_crit_type(result_d20)
 
         return RollResult(
             ast=node,
@@ -140,6 +114,7 @@ class Roller:
             context=context,
             stringifier=stringifier,
             warnings=warnings,
+            crit=crit,
         )
 
     # evaluator
@@ -167,40 +142,3 @@ class Roller:
 
     def _eval_dice(self, node: ast.Dice, context: RollContext) -> Dice:
         return Dice.new(node, context)
-
-    # advantage util
-
-    @staticmethod
-    def _copy_with_d20_rerolled(roll: Number[ast.Node], d20: ast.Node):
-        copy = roll.copy()
-        d20_number = copy.find_from_ast(d20)
-        if d20_number is None:
-            return copy
-
-        if not isinstance(d20_number, (OperatedDice, Dice)):
-            return copy
-
-        d20_number.dice[0].reroll()
-        return copy
-
-    @staticmethod
-    def _get_advantage_roll(rolls: list[Number[ast.Node]], advantage: AdvType) -> Number[ast.Node]:
-        match advantage.value:
-            case AdvType.NONE.value:
-                return rolls[0]
-
-            # In case of advantage, return the one with the highest total
-            case AdvType.ADV.value:
-                roll = rolls[0]
-                for i in range(1, len(rolls)):
-                    if rolls[i].total > roll.total:
-                        roll = rolls[i]
-                return roll
-
-            # In case of advantage, return the one with the lowest total
-            case AdvType.DIS.value:
-                roll = rolls[0]
-                for i in range(1, len(rolls)):
-                    if rolls[i].total < roll.total:
-                        roll = rolls[i]
-                return roll
