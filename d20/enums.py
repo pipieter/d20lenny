@@ -9,6 +9,7 @@ class Critical(str, Enum):
     NONE = "none"
     CRIT = "crit"
     FAIL = "fail"
+    DIRTY = "dirty"
 
 
 class Advantage(str, Enum):
