@@ -50,8 +50,14 @@ class RollResult:
         return self.roll.total
 
     @property
-    def expr(self) -> str:
+    def result(self) -> str:
+        """Return the stringified expression of the result, e.g. 1d20 (5) + 2 = 7"""
         return self.roll.expr
+
+    @property
+    def expression(self) -> str:
+        """Return the original form of the expression, e.g. 1d20 + 2"""
+        return str(self.ast)
 
     def __int__(self):
         return int(self.total)

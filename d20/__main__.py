@@ -21,6 +21,6 @@ while True:
 
     try:
         result = roll(expr)
-        print(result.expr)
+        print(result.result)
     except Exception as e:
         print(f"Could not parse '{expr}': {str(e)}")

@@ -26,7 +26,7 @@ def r(e: str):
 def test_rolls_dont_error(expr: str):
     result = roll(expr)
     assert isinstance(result, RollResult)
-    assert isinstance(result.expr, str)
+    assert isinstance(result.result, str)
     assert isinstance(result.total, (int, float))
     assert isinstance(result.ast, ast.Node)
     assert isinstance(result.roll.roll, Expression)
@@ -220,11 +220,13 @@ def test_red_op(iterations: int):
 def test_correct_results():
     result = roll("1+2+3")
     assert result.total == 6
-    assert result.expr == "1 + 2 + 3 = 6"
+    assert result.result == "1 + 2 + 3 = 6"
+    assert result.expression == "1 + 2 + 3"
 
     result = roll("1+2+3+4")
     assert result.total == 10
-    assert result.expr == "1 + 2 + 3 + 4 = 10"
+    assert result.result == "1 + 2 + 3 + 4 = 10"
+    assert result.expression == "1 + 2 + 3 + 4"
 
 
 def test_no_dice_warnings():
