@@ -8,7 +8,7 @@ from typing import Callable, Optional, Type
 from .expression import BinOp, Dice, Expression, Literal, Number, Parenthetical, UnOp, RollContext
 from .stringifier import SimpleStringifier, Stringifier
 from .. import diceast as ast, utils
-from ..enums import AdvType, CritType
+from ..enums import Advantage, Critical
 from ..rand import random_impl
 
 
@@ -18,7 +18,7 @@ class SingleRollResult:
 
     ast: ast.Node
     roll: Number
-    crit: CritType
+    crit: Critical
     stringifier: Stringifier
 
     @property
@@ -41,10 +41,10 @@ class RollResult:
     ast: ast.Node
     result: SingleRollResult
     rolls: list[SingleRollResult]
-    advantage: AdvType
+    advantage: Advantage
     stringifier: Stringifier
     warnings: list[str]
-    crit: CritType
+    crit: Critical
 
     @property
     def total(self) -> int:
@@ -83,7 +83,7 @@ class Roller:
         self,
         node: ast.Node,
         stringifier: Optional[Stringifier] = None,
-        advantage: AdvType = AdvType.NONE,
+        advantage: Advantage = Advantage.NONE,
     ) -> RollResult:
         """Rolls the dice."""
         if stringifier is None:
@@ -97,16 +97,16 @@ class Roller:
         rolls = [first_roll]
 
         # Roll with advantage
-        if advantage != AdvType.NONE:
+        if advantage != Advantage.NONE:
             if d20 is None:
-                warnings.append(f"Rolled with {advantage.name}, but expression did not contain a valid d20.")
+                warnings.append(f"Rolled with {advantage.value}, but expression did not contain a valid d20.")
             else:
                 for _ in range(advantage.rolls - 1):
                     next_roll = utils.copy_number_with_d20_rerolled(first_roll, d20)
                     rolls.append(next_roll)
 
         result = utils.determine_final_roll(rolls, advantage)
-        crit = CritType.NONE
+        crit = Critical.NONE
         die = utils.extract_dice(result)
 
         if len(die) == 0:

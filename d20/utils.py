@@ -1,7 +1,7 @@
 from collections.abc import Sequence
 
 from . import diceast as ast
-from .enums import AdvType, CritType
+from .enums import Advantage, Critical
 from .roll import expression
 
 
@@ -52,31 +52,31 @@ def find_d20(node: ast.Node) -> ast.Dice | None:
     raise NotImplementedError(f"find_d20 not implemented for {type(node)}")
 
 
-def determine_crit_type(node: expression.Number | None) -> CritType:
+def determine_crit_type(node: expression.Number | None) -> Critical:
     if isinstance(node, expression.Dice):
         dice = node.keptset
     else:
-        return CritType.NONE
+        return Critical.NONE
 
     if len(dice) != 1 or node.size != 20:
-        return CritType.NONE
+        return Critical.NONE
 
     if dice[0].value == 1:
-        return CritType.FAIL
+        return Critical.FAIL
 
     if dice[0].value == 20:
-        return CritType.CRIT
+        return Critical.CRIT
 
-    return CritType.NONE
+    return Critical.NONE
 
 
-def determine_final_roll(rolls: list[expression.Number], advantage: AdvType) -> expression.Number:
+def determine_final_roll(rolls: list[expression.Number], advantage: Advantage) -> expression.Number:
     match advantage.value:
-        case AdvType.NONE.value:
+        case Advantage.NONE.value:
             return rolls[0]
 
         # In case of advantage, return the one with the highest total
-        case AdvType.ADV.value:
+        case Advantage.ADVANTAGE.value | Advantage.ELVEN_ACCURACY.value:
             roll = rolls[0]
             for i in range(1, len(rolls)):
                 if rolls[i].total > roll.total:
@@ -84,7 +84,7 @@ def determine_final_roll(rolls: list[expression.Number], advantage: AdvType) -> 
             return roll
 
         # In case of advantage, return the one with the lowest total
-        case AdvType.DIS.value:
+        case Advantage.DISADVANTAGE.value:
             roll = rolls[0]
             for i in range(1, len(rolls)):
                 if rolls[i].total < roll.total:
