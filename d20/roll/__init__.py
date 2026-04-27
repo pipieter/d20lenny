@@ -39,7 +39,7 @@ class RollResult:
     """Holds information about the result of a roll. This should generally not be constructed manually."""
 
     ast: ast.Node
-    result: SingleRollResult
+    roll: SingleRollResult
     rolls: list[SingleRollResult]
     advantage: Advantage
     stringifier: Stringifier
@@ -48,11 +48,11 @@ class RollResult:
 
     @property
     def total(self) -> int:
-        return self.result.total
+        return self.roll.total
 
     @property
     def expr(self) -> str:
-        return self.result.expr
+        return self.roll.expr
 
     def __int__(self):
         return int(self.total)
@@ -134,8 +134,8 @@ class Roller:
 
         return RollResult(
             ast=node,
+            roll=result,
             rolls=rolls,
-            result=result,
             advantage=advantage,
             stringifier=stringifier,
             warnings=warnings,

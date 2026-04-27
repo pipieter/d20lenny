@@ -29,7 +29,7 @@ def test_rolls_dont_error(expr: str):
     assert isinstance(result.expr, str)
     assert isinstance(result.total, (int, float))
     assert isinstance(result.ast, ast.Node)
-    assert isinstance(result.result.roll, Expression)
+    assert isinstance(result.roll.roll, Expression)
 
 
 @pytest.mark.parametrize(
