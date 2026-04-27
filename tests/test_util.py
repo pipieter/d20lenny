@@ -29,3 +29,18 @@ def test_context_d20(has_d20: bool, expr: str):
         assert isinstance(d20, ast.Dice)
     else:
         assert d20 is None
+
+
+@pytest.mark.parametrize(
+    "is_comparison, expr",
+    [
+        (True, "1d20 > 3"),
+        (True, "1d20 - 1d4> 3"),
+        (True, "((1d20 > 4))"),
+        (False, "1d20"),
+        (False, "(1d20 > 3) * 4"),
+    ],
+)
+def test_is_comparison(is_comparison: bool, expr: str):
+    tree = parse(expr)
+    assert utils.expression_is_comparison(tree) == is_comparison

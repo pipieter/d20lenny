@@ -122,3 +122,12 @@ def extract_dice(node: expression.Number) -> Sequence[expression.Die]:
     raise NotImplementedError(f"extract_dice not implemented for {type(node)}")
 
 
+def expression_is_comparison(node: ast.Node) -> bool:
+    if isinstance(node, ast.Expression):
+        return expression_is_comparison(node.roll)
+    if isinstance(node, ast.Parenthetical):
+        return expression_is_comparison(node.value)
+    if isinstance(node, ast.BinOp):
+        return node.op in {">", "<", ">=", "<=", "==", "!="}
+
+    return False
