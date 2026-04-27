@@ -39,7 +39,10 @@ class Number(abc.ABC):
     def copy(self) -> "Number":
         raise NotImplementedError
 
-    def find_from_ast(self, ast: ASTNode) -> "Number | None":
+    def find_from_ast(self, ast: ASTNode | None) -> "Number | None":
+        if ast is None:
+            return None
+
         if self._ast == ast:
             return self
 

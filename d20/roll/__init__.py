@@ -1,5 +1,6 @@
 # region ===== Roller ======
 
+import dataclasses
 import random
 from collections.abc import Mapping
 from typing import Callable, Optional, Type
@@ -12,41 +13,47 @@ from ..enums import AdvType, CritType
 from ..rand import random_impl
 
 
-class RollResult:
-    """
-    Holds information about the result of a roll. This should generally not be constructed manually.
-    """
+@dataclasses.dataclass
+class SingleRollResult:
+    """Holds information of a single roll result."""
 
-    def __init__(
-        self,
-        ast: ast.Node,
-        rolls: list[Number],
-        result: Number,
-        context: RollContext,
-        stringifier: Stringifier,
-        warnings: list[str],
-        crit: CritType,
-    ):
-        """
-        :type the_ast: ast.Node
-        :type the_roll: d20.Expression
-        :type stringifier: d20.Stringifier
-        """
-        self.ast = ast
-        self.rolls = rolls
-        self.result = result
-        self.context = context
-        self.stringifier = stringifier
-        self.warnings = warnings
-        self.crit = crit
+    ast: ast.Node
+    roll: Number
+    crit: CritType
+    stringifier: Stringifier
 
     @property
-    def total(self) -> int | float:
+    def expr(self) -> str:
+        return self.stringifier.stringify(self.roll)
+
+    @property
+    def total(self) -> int:
+        return self.roll.total
+
+    @property
+    def is_comparison(self) -> bool:
+        return utils.expression_is_comparison(self.ast)
+
+
+@dataclasses.dataclass
+class RollResult:
+    """Holds information about the result of a roll. This should generally not be constructed manually."""
+
+    ast: ast.Node
+    result: SingleRollResult
+    rolls: list[SingleRollResult]
+    advantage: AdvType
+    stringifier: Stringifier
+    warnings: list[str]
+    crit: CritType
+
+    @property
+    def total(self) -> int:
         return self.result.total
 
     @property
     def expr(self) -> str:
-        return self.stringifier.stringify(self.result)
+        return self.result.expr
 
     def __int__(self):
         return int(self.total)
@@ -87,16 +94,17 @@ class Roller:
         context = RollContext(self.rng)
         warnings: list[str] = []
 
-        roll = self._eval(node, context)
-        rolls = [roll]
+        first_roll = self._eval(node, context)
+        rolls = [first_roll]
 
+        # Roll with advantage
         if advantage != AdvType.NONE:
             if d20 is None:
                 warnings.append(f"Rolled with {advantage.name}, but expression did not contain a valid d20.")
             else:
                 for _ in range(advantage.rolls - 1):
-                    copy = utils.copy_number_with_d20_rerolled(roll, d20)
-                    rolls.append(copy)
+                    next_roll = utils.copy_number_with_d20_rerolled(first_roll, d20)
+                    rolls.append(next_roll)
 
         result = utils.determine_final_roll(rolls, advantage)
         crit = CritType.NONE
@@ -109,11 +117,27 @@ class Roller:
             result_d20 = result.find_from_ast(d20)
             crit = utils.determine_crit_type(result_d20)
 
+        result = SingleRollResult(
+            ast=node,
+            roll=result,
+            stringifier=stringifier,
+            crit=utils.determine_crit_type(result.find_from_ast(d20)),
+        )
+        rolls = [
+            SingleRollResult(
+                ast=node,
+                roll=roll,
+                stringifier=stringifier,
+                crit=utils.determine_crit_type(roll.find_from_ast(d20)),
+            )
+            for roll in rolls
+        ]
+
         return RollResult(
             ast=node,
             rolls=rolls,
             result=result,
-            context=context,
+            advantage=advantage,
             stringifier=stringifier,
             warnings=warnings,
             crit=crit,
