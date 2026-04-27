@@ -1,3 +1,5 @@
+from collections.abc import Sequence
+
 from . import diceast as ast
 from .enums import AdvType, CritType
 from .roll import expression
@@ -101,3 +103,22 @@ def copy_number_with_d20_rerolled(roll: expression.Number, d20: ast.Node) -> exp
 
     d20_number.dice[0].reroll()
     return copy
+
+
+def extract_dice(node: expression.Number) -> Sequence[expression.Die]:
+    if isinstance(node, expression.Expression):
+        return extract_dice(node.roll)
+    if isinstance(node, expression.Literal):
+        return []
+    if isinstance(node, expression.Dice):
+        return node.keptset
+    if isinstance(node, expression.Parenthetical):
+        return extract_dice(node.value)
+    if isinstance(node, expression.UnOp):
+        return extract_dice(node.value)
+    if isinstance(node, expression.BinOp):
+        return list(extract_dice(node.left)) + list(extract_dice(node.right))
+
+    raise NotImplementedError(f"extract_dice not implemented for {type(node)}")
+
+

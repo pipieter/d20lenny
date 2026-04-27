@@ -100,6 +100,10 @@ class Roller:
 
         result = utils.determine_final_roll(rolls, advantage)
         crit = CritType.NONE
+        die = utils.extract_dice(result)
+
+        if len(die) == 0:
+            warnings.append("Expression did not contain any dice.")
 
         if d20:
             result_d20 = result.find_from_ast(d20)

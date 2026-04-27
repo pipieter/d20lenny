@@ -208,7 +208,6 @@ def test_red_op(iterations: int):
         assert -4 < r("1d4red") <= 8
 
 
-# modifying the tree directly
 def test_correct_results():
     result = roll("1+2+3")
     assert result.total == 6
@@ -217,3 +216,11 @@ def test_correct_results():
     result = roll("1+2+3+4")
     assert result.total == 10
     assert result.expr == "1 + 2 + 3 + 4 = 10"
+
+
+def test_no_dice_warnings():
+    result = roll("1d20")
+    assert len(result.warnings) == 0
+
+    result = roll("20")
+    assert len(result.warnings) == 1
