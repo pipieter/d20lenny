@@ -6,7 +6,6 @@ build-backend = "hatchling.build"
 "d20/py.typed" = "d20/py.typed"
 "typings/**/*.pyi" = "typings/**/*.pyi"
 
-
 [project]
 name = "d20"
 version = "1.1.3"
