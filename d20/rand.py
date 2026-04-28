@@ -12,20 +12,20 @@ Thanks to @posita for inspiring the implementation of NumpyRandom.
 """
 
 import random
-from typing import Any, Optional, Sequence, Type, Union
+from typing import Any, Optional, Type, Union
 
 import numpy.random
 
 __all__ = ("random_impl",)
 
-_SeedT = Optional[Union[int, Sequence[int], numpy.random.SeedSequence]]
+SeedT = Union[int, float, str, bytes, bytearray]
 
 
 class NumpyRandom(random.Random):
     _gen: numpy.random.Generator
     _bitgen_type: Type[numpy.random.BitGenerator]
 
-    def __init__(self, bitgen_type: Type[numpy.random.BitGenerator], x: _SeedT = None):
+    def __init__(self, bitgen_type: Type[numpy.random.BitGenerator], x: Optional[SeedT] = None):
         self._bitgen_type = bitgen_type
         # Random.__init__() calls seed(), so we let seed() initialize the Generator instance to avoid instantiating
         # it twice (once in __init__, once in seed())
@@ -48,16 +48,16 @@ class NumpyRandom(random.Random):
         # (tested on 1.17.5)
         return self._gen.bytes(n)
 
-    def seed(self, a: _SeedT = None, version: int = 2):  # type: ignore
+    def seed(self, a: Optional[SeedT] = None, version: int = 2) -> None:  # type: ignore
         # note that this takes in a different type than random.Random.seed()
         # this is because BitGenerator's seed requires an int/sequence of ints, while Random accepts
         # floats, strs, etc; for the common case we expect the user to pass an int
-        self._gen = numpy.random.Generator(self._bitgen_type(a))
+        self._gen = numpy.random.Generator(self._bitgen_type(a))  # type: ignore
 
-    def getstate(self):  # type: ignore
-        return self._gen.bit_generator.state
+    def getstate(self) -> tuple[Any, ...]:
+        return tuple(self._gen.bit_generator.state.values())
 
-    def setstate(self, state: Any):
+    def setstate(self, state: Any) -> None:
         self._gen.bit_generator.state = state
 
 

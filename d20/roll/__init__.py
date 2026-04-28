@@ -23,14 +23,17 @@ class SingleRollResult:
 
     @property
     def expr(self) -> str:
+        """Return the string representation of the evaluated expression."""
         return self.stringifier.stringify(self.roll)
 
     @property
     def total(self) -> int:
+        """Return the total value of the roll."""
         return self.roll.total
 
     @property
     def is_comparison(self) -> bool:
+        """Checks if the roll is a top-level comparison."""
         return utils.expression_is_comparison(self.ast)
 
 
@@ -47,6 +50,7 @@ class RollResult:
 
     @property
     def total(self) -> int:
+        """Return the total value of the roll."""
         return self.roll.total
 
     @property
@@ -59,19 +63,22 @@ class RollResult:
         """Return the original form of the expression, e.g. 1d20 + 2"""
         return str(self.ast)
 
-    def __int__(self):
+    def __int__(self) -> int:
+        """Return the total value of the expression, as an integer."""
         return int(self.total)
 
-    def __float__(self):
-        return self.total
+    def __float__(self) -> float:
+        """Return the total value of the expression, as an floating point number.."""
+        return float(self.total)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<RollResult total={self.total}/>"
 
 
-# noinspection PyMethodMayBeStatic
 class Roller:
-    """The main class responsible for parsing dice into an AST and evaluating that AST."""
+    """The main class responsible for evaluating and rolling dice expressions."""
+
+    _rng: random.Random
 
     def __init__(self, rng: random.Random = random_impl):
         self._nodes: Mapping[Type[ast.Node], Callable[[ast.Node, RollContext], Number]] = {  # type: ignore
@@ -82,7 +89,11 @@ class Roller:
             ast.BinOp: self._eval_binop,
             ast.Dice: self._eval_dice,
         }
-        self.rng = rng
+        self._rng = rng
+
+    def seed(self, s: int | float | str | bytes | bytearray | None = None) -> None:
+        """Set the seed of the rng."""
+        self._rng.seed(s)
 
     def roll(
         self,
@@ -95,7 +106,7 @@ class Roller:
             stringifier = SimpleStringifier()
 
         d20 = utils.find_d20(node)
-        context = RollContext(self.rng)
+        context = RollContext(self._rng)
         warnings: list[str] = []
 
         first_roll = self._eval(node, context)
