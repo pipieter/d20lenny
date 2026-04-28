@@ -1,7 +1,8 @@
 from collections.abc import Sequence
+from typing import Literal
 
 from . import diceast as ast
-from .enums import Advantage, Critical
+from .enums import Critical
 from .roll import expression
 
 
@@ -73,39 +74,17 @@ def determine_crit_type(root: expression.Number, d20: expression.Number | None) 
     return Critical.NONE
 
 
-def determine_final_roll(rolls: list[expression.Number], advantage: Advantage) -> expression.Number:
-    match advantage.value:
-        case Advantage.NONE.value:
-            return rolls[0]
+def add_adv_operator_to_dice(dice: ast.Dice, adv: Literal["adv", "dis", None], count: int) -> bool:
+    if adv is None:
+        return True
 
-        # In case of advantage, return the one with the highest total
-        case Advantage.ADVANTAGE.value | Advantage.ELVEN_ACCURACY.value:
-            roll = rolls[0]
-            for i in range(1, len(rolls)):
-                if rolls[i].total > roll.total:
-                    roll = rolls[i]
-            return roll
+    # Check if the dice already has adv or dis
+    for operator in dice.operations:
+        if operator.op in ["adv", "dis"]:
+            return False
 
-        # In case of advantage, return the one with the lowest total
-        case Advantage.DISADVANTAGE.value:
-            roll = rolls[0]
-            for i in range(1, len(rolls)):
-                if rolls[i].total < roll.total:
-                    roll = rolls[i]
-            return roll
-
-
-def copy_number_with_d20_rerolled(roll: expression.Number, d20: ast.Node) -> expression.Number:
-    copy = roll.copy()
-    d20_number = copy.find_from_ast(d20)
-    if d20_number is None:
-        return copy
-
-    if not isinstance(d20_number, expression.Dice):
-        return copy
-
-    d20_number.dice[0].reroll()
-    return copy
+    dice.operations.append(ast.Operator(adv, [ast.Selector(None, count)]))
+    return True
 
 
 def extract_dice(node: expression.Number) -> Sequence[expression.Die]:

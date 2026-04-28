@@ -29,7 +29,7 @@ parenthetical: "(" _WS? num _WS? ")"
 
 dice_op: ((DICE_OPERATOR | SET_OPERATOR) selector) | EXPRESSION_OPERATOR
 SET_OPERATOR: "k" | "p"
-DICE_OPERATOR: "rr" | "ro" | "ra" | "e" | "mi" | "ma" | "rs"
+DICE_OPERATOR: "rr" | "ro" | "ra" | "e" | "mi" | "ma" | "rs" | "adv" | "dis"
 EXPRESSION_OPERATOR: "red"
 
 dice_expr: INTEGER? "d" DICE_VALUE

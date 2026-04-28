@@ -1,4 +1,5 @@
 from enum import Enum
+from typing import Literal
 
 __all__ = ("Critical", "Advantage")
 
@@ -29,3 +30,13 @@ class Advantage(str, Enum):
                 return 3
             case self.NONE.value:
                 return 1
+
+    @property
+    def adv(self) -> Literal["adv", "dis", None]:
+        match self.value:
+            case self.ADVANTAGE.value | self.ELVEN_ACCURACY.value:
+                return "adv"
+            case self.DISADVANTAGE.value:
+                return "dis"
+            case self.NONE.value:
+                return None
