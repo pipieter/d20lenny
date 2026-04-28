@@ -362,13 +362,17 @@ class Dice(Number):
             if operator.op == "adv" or operator.op == "dis":
                 if adv is not None:
                     raise ValueError(f"Encountered {operator.op} in expression, but expression already has {adv}.")
-                if len(operator.sels) != 1:
-                    raise ValueError(f"Operator {operator.op} expected one selector.")
-                if operator.sels[0].cat is not None:
-                    raise ValueError(f"Operator {operator.op} only works with .")
-
                 adv = operator.op
-                roll_count = operator.sels[0].num
+
+                if len(operator.sels) == 0:
+                    roll_count = 2
+                elif len(operator.sels) != 1:
+                    raise ValueError(f"Operator {operator.op} expected one selector.")
+                else:
+                    if operator.sels[0].cat is not None:
+                        raise ValueError(f"Operator {operator.op} only works with literal numerics.")
+
+                    roll_count = operator.sels[0].num
 
         if roll_count < 1:
             raise ValueError(f"Operator {adv} expected at least one roll.")

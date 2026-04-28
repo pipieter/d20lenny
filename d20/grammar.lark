@@ -27,9 +27,10 @@ parenthetical: "(" _WS? num _WS? ")"
 // dice
 ?dice: dice_expr dice_op*
 
-dice_op: ((DICE_OPERATOR | SET_OPERATOR) selector) | EXPRESSION_OPERATOR
+dice_op: ((DICE_OPERATOR | SET_OPERATOR) selector) | EXPRESSION_OPERATOR | (ADVANTAGE_OPERATOR num_selector?)
 SET_OPERATOR: "k" | "p"
-DICE_OPERATOR: "rr" | "ro" | "ra" | "e" | "mi" | "ma" | "rs" | "adv" | "dis"
+DICE_OPERATOR: "rr" | "ro" | "ra" | "e" | "mi" | "ma" | "rs"
+ADVANTAGE_OPERATOR: "adv" | "dis"
 EXPRESSION_OPERATOR: "red"
 
 dice_expr: INTEGER? "d" DICE_VALUE
@@ -37,6 +38,7 @@ dice_expr: INTEGER? "d" DICE_VALUE
 DICE_VALUE: INTEGER | "%"
 
 selector: [SELTYPE] INTEGER
+num_selector: INTEGER
 
 SELTYPE: "l" | "h" | "<" | ">"
 

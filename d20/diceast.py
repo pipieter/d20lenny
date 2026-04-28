@@ -53,6 +53,9 @@ class RollTransformer(Transformer[Any, Any]):
     def selector(self, sel: Any) -> "Selector":
         return Selector(*sel)
 
+    def num_selector(self, sel: Any) -> "Selector":
+        return Selector(None, *sel)
+
 
 # ===== ast classes =====
 
