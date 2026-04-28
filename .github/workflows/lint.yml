@@ -22,7 +22,8 @@ jobs:
       - name: Black linter
         uses: psf/black@stable
         with:
-          options: "--check --verbose d20 tests"
+          src: "d20 tests typings"
+          options: "--check --verbose"
 
   pyright:
     runs-on: ubuntu-latest
