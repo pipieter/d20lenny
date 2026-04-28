@@ -235,3 +235,65 @@ def test_no_dice_warnings():
 
     result = roll("20")
     assert len(result.warnings) == 1
+
+
+def test_adv():
+    result = roll("1d20adv1")
+    assert len(result.rolls) == 1
+    assert result.total == max(rr.total for rr in result.rolls)
+
+    result = roll("1d20adv")
+    assert len(result.rolls) == 2
+    assert result.total == max(rr.total for rr in result.rolls)
+
+    result = roll("1d20adv2")
+    assert len(result.rolls) == 2
+    assert result.total == max(rr.total for rr in result.rolls)
+
+    result = roll("1d20adv4")
+    assert len(result.rolls) == 4
+    assert result.total == max(rr.total for rr in result.rolls)
+
+    result = roll("1d20adv20 + 1d4 + 3")
+    assert len(result.rolls) == 20
+    assert result.total == max(rr.total for rr in result.rolls)
+
+    with pytest.raises(RollError):
+        result = roll("1d20adv0")
+
+
+def test_dis():
+    result = roll("1d20dis1")
+    assert len(result.rolls) == 1
+    assert result.total == min(rr.total for rr in result.rolls)
+
+    result = roll("1d20dis")
+    assert len(result.rolls) == 2
+    assert result.total == min(rr.total for rr in result.rolls)
+
+    result = roll("1d20dis2")
+    assert len(result.rolls) == 2
+    assert result.total == min(rr.total for rr in result.rolls)
+
+    result = roll("1d20dis4")
+    assert len(result.rolls) == 4
+    assert result.total == min(rr.total for rr in result.rolls)
+
+    with pytest.raises(RollError):
+        result = roll("1d20dis0")
+
+
+@pytest.mark.parametrize(
+    "r1,r2,r3",
+    [
+        (1, 2, 3),
+        (4, 1, 4),
+        (1, 1, 1),
+        (2, 2, 2),
+        (5, 5, 5),
+    ],
+)
+def test_multi_adv(r1: int, r2: int, r3: int):
+    result = roll(f"1d20adv{r1} + 1d8adv{r2} + 1d4adv{r3} + 3")
+    assert len(result.rolls) == r1 * r2 * r3
+    assert result.total == max(rr.total for rr in result.rolls)
