@@ -22,22 +22,19 @@ class RollContext:
         self.max_rolls = max_rolls
         self.rolls = 0
 
-    def count_roll(self, n: int = 1):
-        """
-        Called each time a die is about to be rolled.
-
-        :param int n: The number of rolls about to be made.
-        :raises d20.TooManyRolls: if the roller should stop rolling dice because too many have been rolled.
-        """
+    def _increment(self, n: int = 1) -> None:
+        """Called each time a die is about to be rolled to avoid too many rolls."""
         self.rolls += n
         if self.rolls > self.max_rolls:
             raise errors.TooManyRolls("Too many dice rolled.")
 
     def roll(self, size: ast.DiceSize) -> int:
+        """Roll a dice and return its value."""
+
         if size == 0:
             raise errors.RollValueError("Cannot roll zero-sided die.")
 
-        self.count_roll(1)
+        self._increment(1)
         if size == "%":
             return self.rng.randrange(10) * 10
         else:
@@ -76,9 +73,12 @@ class Number(abc.ABC):
 
     @abc.abstractmethod
     def copy(self) -> "Number":
+        """Return a copy of the Number. The original AST nodes will not be copied to still allow find_from_ast."""
         raise NotImplementedError
 
     def find_from_ast(self, ast: ASTNode | None) -> "Number | None":
+        """Find the child of the evaluated Number from its original AST node, or None if it could not be found."""
+
         if ast is None:
             return None
 
@@ -96,25 +96,25 @@ class Number(abc.ABC):
 class Expression(Number):
     """Expressions are usually the root of all Number trees."""
 
-    roll: Number
+    value: Number
 
     def __init__(self, roll: Number, ast: ast.Node) -> None:
         super().__init__(ast)
-        self.roll = roll
+        self.value = roll
 
     @property
     def total(self) -> int:
-        return self.roll.total
+        return self.value.total
 
     @property
     def children(self) -> Sequence[Number]:
-        return [self.roll]
+        return [self.value]
 
     def __repr__(self) -> str:
-        return f"<Expression roll={repr(self.roll)}/>"
+        return f"<Expression roll={repr(self.value)}/>"
 
     def copy(self) -> "Expression":
-        return Expression(self.roll.copy(), self._ast)
+        return Expression(self.value.copy(), self._ast)
 
 
 class Literal(Number):
@@ -245,7 +245,7 @@ class BinOp(Number):
 
 
 class Die:
-    """Represents a single die."""
+    """Represents a single die that can be rerolled or dropped."""
 
     kept: bool
     exploded: bool
@@ -272,28 +272,35 @@ class Die:
             self.values = value
 
     @property
-    def value(self):
+    def value(self) -> int:
+        """The final value of the die."""
         return self.values[-1]
 
     def reroll(self) -> None:
+        """Re-roll the current die."""
         roll = self._context.roll(self.size)
         self.values.append(roll)
 
-    def set_value(self, value: int):
+    def set_value(self, value: int) -> None:
+        """Set the current value of the die forcibly."""
         self.values.append(value)
 
-    def drop(self):
+    def drop(self) -> None:
+        """Mark the die as dropped."""
         self.kept = False
 
-    def explode(self):
+    def explode(self) -> None:
+        """Mark the die as exploded."""
         self.exploded = True
 
     @staticmethod
     def new(size: ast.DiceSize, context: RollContext, kept: bool = True, exploded: bool = False) -> "Die":
+        """Roll a new die."""
         value = context.roll(size)
         return Die(value, size, context, kept=kept, exploded=exploded)
 
     def copy(self) -> "Die":
+        """Return a copy of the die."""
         return Die(value=[*self.values], size=self.size, context=self._context, kept=self.kept, exploded=self.exploded)
 
 
@@ -325,6 +332,7 @@ class Dice(Number):
 
     @classmethod
     def new(cls, ast: ast.Dice, context: RollContext) -> "Dice":
+        """Roll a new set of dice."""
         num = ast.num
         size = ast.size
         dice: list[Die] = []
@@ -342,6 +350,7 @@ class Dice(Number):
 
     @property
     def keptset(self) -> Sequence[Die]:
+        """Return a list of all dice that were not dropped."""
         return [die for die in self.dice if die.kept]
 
     @property
@@ -352,7 +361,8 @@ class Dice(Number):
     def children(self) -> Sequence[Number]:
         return []
 
-    def roll_another(self, negative: bool = False):
+    def roll_another(self, negative: bool = False) -> None:
+        """Roll another die and add it to the dice set."""
         die = Die.new(self.size, self._context)
 
         if negative:
@@ -360,7 +370,8 @@ class Dice(Number):
 
         self.dice.append(die)
 
-    def operate(self, operator: "Operator"):
+    def operate(self, operator: "Operator") -> None:
+        """Apply an operator to the dice set."""
         operator.operate(self)
 
     def __repr__(self) -> str:
@@ -419,16 +430,16 @@ class Operator:
 
         return out
 
-    def keep(self, target: Dice):
+    def keep(self, target: Dice) -> None:
         for value in target.keptset:
             if value not in self.select(target):
                 value.drop()
 
-    def drop(self, target: Dice):
+    def drop(self, target: Dice) -> None:
         for value in self.select(target):
             value.drop()
 
-    def reroll(self, target: Dice):
+    def reroll(self, target: Dice) -> None:
         to_reroll = self.select(target)
 
         while to_reroll:
@@ -437,11 +448,11 @@ class Operator:
 
             to_reroll = self.select(target)
 
-    def reroll_once(self, target: Dice):
+    def reroll_once(self, target: Dice) -> None:
         for die in self.select(target):
             die.reroll()
 
-    def explode(self, target: Dice):
+    def explode(self, target: Dice) -> None:
         to_explode = self.select(target)
         already_exploded: set[Die] = set()
 
@@ -454,21 +465,21 @@ class Operator:
             already_exploded.update(to_explode)
             to_explode = (self.select(target)).difference(already_exploded)
 
-    def explode_once(self, target: Dice):
+    def explode_once(self, target: Dice) -> None:
         for die in self.select(target):
             if not die.exploded:
                 die.explode()
                 target.roll_another()
                 return
 
-    def reroll_and_subtract(self, target: Dice):
+    def reroll_and_subtract(self, target: Dice) -> None:
         for die in self.select(target):
             if not die.exploded:
                 die.explode()
                 target.roll_another(negative=True)
                 return
 
-    def explode_red(self, target: Dice):
+    def explode_red(self, target: Dice) -> None:
         if target.size == "%":
             size = 100
         else:
@@ -483,7 +494,7 @@ class Operator:
         if rs_count > 0:
             target.roll_another(negative=True)
 
-    def minimum(self, target: Dice):
+    def minimum(self, target: Dice) -> None:
         """
         :type target: Dice
         """
@@ -495,7 +506,7 @@ class Operator:
             if die.value < the_min:
                 die.set_value(the_min)
 
-    def maximum(self, target: Dice):
+    def maximum(self, target: Dice) -> None:
         """
         :type target: Dice
         """
@@ -538,19 +549,19 @@ class Selector:
 
         return set(selected)
 
-    def lowestn(self, target: Dice):
+    def lowestn(self, target: Dice) -> Sequence[Die]:
         return sorted(target.keptset, key=lambda n: n.value)[: self.num]
 
-    def highestn(self, target: Dice):
+    def highestn(self, target: Dice) -> Sequence[Die]:
         return sorted(target.keptset, key=lambda n: n.value, reverse=True)[: self.num]
 
-    def lessthan(self, target: Dice):
+    def lessthan(self, target: Dice) -> Sequence[Die]:
         return [n for n in target.keptset if n.value < self.num]
 
-    def morethan(self, target: Dice):
+    def morethan(self, target: Dice) -> Sequence[Die]:
         return [n for n in target.keptset if n.value > self.num]
 
-    def literal(self, target: Dice):
+    def literal(self, target: Dice) -> Sequence[Die]:
         return [n for n in target.keptset if n.value == self.num]
 
     def __str__(self):

@@ -17,46 +17,41 @@ DiceSize = int | typing.Literal["%"]
 
 # noinspection PyMethodMayBeStatic
 class RollTransformer(Transformer[Any, Any]):
-    _comma = object()
-
-    def expr(self, num: Any):
+    def expr(self, num: Any) -> "Expression":
         return Expression(*num)
 
-    def comparison(self, binop: Any):
+    def comparison(self, binop: Any) -> "BinOp":
         return BinOp(*binop)
 
-    def a_num(self, binop: Any):
+    def a_num(self, binop: Any) -> "BinOp":
         return BinOp(*binop)
 
-    def m_num(self, binop: Any):
+    def m_num(self, binop: Any) -> "BinOp":
         return BinOp(*binop)
 
-    def u_num(self, unop: Any):
+    def u_num(self, unop: Any) -> "UnOp":
         return UnOp(*unop)
 
-    def literal(self, num: Any):
+    def literal(self, num: Any) -> "Literal":
         return Literal(*num)
 
-    def parenthetical(self, num: Any):
+    def parenthetical(self, num: Any) -> "Parenthetical":
         return Parenthetical(*num)
 
-    def dice(self, opdice: Any):
+    def dice(self, opdice: Any) -> "Dice":
         dice, *operations = opdice
         return Dice(dice.num, dice.size, *operations)
 
-    def dice_op(self, opsel: Any):
+    def dice_op(self, opsel: Any) -> "Operator":
         return Operator.new(*opsel)
 
-    def dice_expr(self, dice: Any):
+    def dice_expr(self, dice: Any) -> "Dice":
         if len(dice) == 1:
             return Dice(1, *dice)
         return Dice(*dice)
 
-    def selector(self, sel: Any):
+    def selector(self, sel: Any) -> "Selector":
         return Selector(*sel)
-
-    def comma(self, _):
-        return self._comma
 
 
 # ===== ast classes =====
@@ -86,7 +81,7 @@ class Expression(Node):  # expr
         self.roll = roll
 
     @property
-    def children(self):
+    def children(self) -> Sequence[Node]:
         return [self.roll]
 
     def __str__(self):
@@ -109,7 +104,7 @@ class Literal(Node):  # literal
             self.value = value
 
     @property
-    def children(self) -> list[Node]:
+    def children(self) -> Sequence[Node]:
         return []
 
     def __str__(self):
@@ -129,7 +124,7 @@ class Parenthetical(Node):
         self.value = value
 
     @property
-    def children(self):
+    def children(self) -> Sequence[Node]:
         return [self.value]
 
     def __str__(self):
@@ -152,7 +147,7 @@ class UnOp(Node):  # u_num
         self.value = value
 
     @property
-    def children(self):
+    def children(self) -> Sequence[Node]:
         return [self.value]
 
     def __str__(self):
@@ -178,7 +173,7 @@ class BinOp(Node):  # a_num, m_num
         self.right = right
 
     @property
-    def children(self):
+    def children(self) -> Sequence[Node]:
         return [self.left, self.right]
 
     def __str__(self):
@@ -202,14 +197,16 @@ class Operator:  # set_op, dice_op
         self.sels = sels
 
     @classmethod
-    def new(cls, op: str | Token, sel: "Selector | None" = None):
+    def new(cls, op: str | Token, sel: "Selector | None" = None) -> "Operator":
+        """Create an operator from an op and a selector"""
         if sel is None:
             sels = []
         else:
             sels = [sel]
         return cls(op, sels)
 
-    def add_sels(self, sels: list["Selector"]):
+    def add_sels(self, sels: list["Selector"]) -> None:
+        """Add selectors to the operator."""
         self.sels.extend(sels)
 
     def __str__(self):
@@ -254,7 +251,7 @@ class Dice(Node):  # dice_expr
         self._simplify_operations()
 
     @property
-    def children(self) -> list[Node]:
+    def children(self) -> Sequence[Node]:
         return []
 
     def _simplify_operations(self):
@@ -298,6 +295,7 @@ class Parser:
         )
 
     def parse(self, expr: str | bytes, start: str | None = None) -> Expression:
+        """Parse an expression string to an expression AST tree."""
         if start is None:
             start = "expr"
 

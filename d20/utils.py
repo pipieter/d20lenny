@@ -110,7 +110,7 @@ def copy_number_with_d20_rerolled(roll: expression.Number, d20: ast.Node) -> exp
 
 def extract_dice(node: expression.Number) -> Sequence[expression.Die]:
     if isinstance(node, expression.Expression):
-        return extract_dice(node.roll)
+        return extract_dice(node.value)
     if isinstance(node, expression.Literal):
         return []
     if isinstance(node, expression.Dice):

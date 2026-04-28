@@ -105,7 +105,7 @@ class SimpleStringifier(Stringifier):
     """
 
     def _str_expression(self, node: Expression):
-        return f"{self._stringify(node.roll)} = {int(node.total)}"
+        return f"{self._stringify(node.value)} = {int(node.total)}"
 
     def _str_literal(self, node: Literal):
         return str(node.value)

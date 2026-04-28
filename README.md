@@ -12,15 +12,11 @@ A fast, powerful, and extensible dice engine for D&D, d20 systems, and any other
 
 ## Installing
 
-**Requires Python 3.6+**.
+**Requires Python 3.11+**.
 
 ```bash
-pip install d20
+pip install git+https://github.com/pipieter/d20lenny@main
 ```
-
-If `numpy` is installed, `d20` will use an RNG algorithm supplied in NumPy (PCG64 or PCG64DXSM) rather than the Python
-default (MT2002). See [this issue](https://github.com/avrae/d20/issues/7) for more details. You can install `d20` with
-NumPy by using `pip install "d20[numpy]"`.
 
 ## Quickstart
 
@@ -40,6 +36,18 @@ NumPy by using `pip install "d20[numpy]"`.
 ## Documentation
 
 Check out the docs on [Read the Docs](https://d20.readthedocs.io/en/latest/start.html)!
+
+### Generating typings
+
+The typings of the file can be generated with the following commands, which also ensure consistent formatting in the typings:
+
+```bash
+# mypy is required for stubgen
+pip install mypy
+stubgen -p d20 --include-docstrings -o typings
+black typings
+isort typings
+```
 
 ## Dice Syntax
 
