@@ -24,6 +24,7 @@ jobs:
         with:
           src: "d20 tests typings"
           options: "--check --verbose"
+          use_pyproject: true
 
   pyright:
     runs-on: ubuntu-latest
