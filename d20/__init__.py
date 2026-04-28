@@ -18,7 +18,9 @@ def parse(expr: str | ast.Expression) -> ast.Expression:
     return expr
 
 
-def roll(expr: str | ast.Expression, stringifier: Stringifier | None = None, advantage: Advantage = Advantage.NONE) -> RollResult:
+def roll(
+    expr: str | ast.Expression, stringifier: Stringifier | None = None, advantage: Advantage = Advantage.NONE
+) -> RollResult:
     tree = parse(expr)
     return _roller.roll(tree, stringifier, advantage)
 
