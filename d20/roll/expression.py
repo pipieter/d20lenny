@@ -1,9 +1,9 @@
 import abc
 import math
 import random
+import typing
 from collections.abc import Callable, Mapping
 from typing import Sequence
-import typing
 
 from .. import diceast as ast, errors as errors
 from ..diceast import Node as ASTNode

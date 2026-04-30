@@ -9,8 +9,8 @@ from .expression import BinOp, Dice, Expression, Literal, Number, Parenthetical,
 from .stringifier import SimpleStringifier, Stringifier
 from .. import diceast as ast, utils
 from ..enums import Advantage, Critical
-from ..rand import random_impl
 from ..errors import RollError
+from ..rand import random_impl
 
 
 @dataclasses.dataclass
