@@ -15,27 +15,31 @@ def test_advantage_d20():
     assert len(r.rolls) == 2
     assert len(r.warnings) == 0
     assert r.total == max(rr.total for rr in r.rolls)
-    assert r.expression == "1d20adv2"
+    assert r.expression == "1d20"
+    assert r.modified_expression == "1d20adv2"
 
     r = roll("1d20", advantage=Advantage.ELVEN_ACCURACY)
     assert 1 <= r.total <= 20
     assert len(r.rolls) == 3
     assert len(r.warnings) == 0
     assert r.total == max(rr.total for rr in r.rolls)
-    assert r.expression == "1d20adv3"
+    assert r.expression == "1d20"
+    assert r.modified_expression == "1d20adv3"
 
     r = roll("1d20", advantage=Advantage.DISADVANTAGE)
     assert 1 <= r.total <= 20
     assert len(r.rolls) == 2
     assert len(r.warnings) == 0
     assert r.total == min(rr.total for rr in r.rolls)
-    assert r.expression == "1d20dis2"
+    assert r.expression == "1d20"
+    assert r.modified_expression == "1d20dis2"
 
     r = roll("1d20+1d20+6", advantage=Advantage.ADVANTAGE)
     assert 8 <= r.total <= 46
     assert len(r.rolls) == 2
     assert len(r.warnings) == 0
-    assert r.expression == "1d20adv2 + 1d20 + 6"
+    assert r.expression == "1d20 + 1d20 + 6"
+    assert r.modified_expression == "1d20adv2 + 1d20 + 6"
 
 
 # adv/dis should do nothing on non-d20s
@@ -91,4 +95,5 @@ def test_advantage_and_argument():
     assert 2 <= r.total <= 40
     assert len(r.rolls) == 4
     assert len(r.warnings) == 0
-    assert r.expression == "1d20adv2 + 1d20adv"
+    assert r.expression == "1d20 + 1d20adv"
+    assert r.modified_expression == "1d20adv2 + 1d20adv"
