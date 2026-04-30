@@ -42,6 +42,7 @@ class SingleRollResult:
 class RollResult:
     """Holds information about the result of a roll. This should generally not be constructed manually."""
 
+    original_ast: ast.Node
     ast: ast.Node
     roll: SingleRollResult
     rolls: list[SingleRollResult]
@@ -62,6 +63,11 @@ class RollResult:
     @property
     def expression(self) -> str:
         """Return the original form of the expression, e.g. 1d20 + 2"""
+        return str(self.original_ast)
+
+    @property
+    def modified_expression(self) -> str:
+        """Return the form of the expression, after modifications have been added."""
         return str(self.ast)
 
     def __int__(self) -> int:
@@ -105,16 +111,16 @@ class Roller:
         """Rolls the dice."""
 
         # It's possible for the node to be edited for advantage, so a copy is made
-        node = node.copy()
+        modified_node = node.copy()
 
         if stringifier is None:
             stringifier = SimpleStringifier()
 
-        d20 = utils.find_d20(node)
+        d20 = utils.find_d20(modified_node)
         context = RollContext(self._rng)
         warnings: list[str] = []
 
-        first_roll = self._eval(node, context)
+        first_roll = self._eval(modified_node, context)
         rolls = [first_roll]
 
         # Add the advantage operator
@@ -126,7 +132,7 @@ class Roller:
                     warnings.append(f"The d20 in the expression already had an advantage operator.")
 
         # Roll the actual die
-        roll, rolls = self._eval(node, context)
+        roll, rolls = self._eval(modified_node, context)
 
         # Add die warning
         die = utils.extract_dice(roll)
@@ -135,7 +141,7 @@ class Roller:
 
         results = [
             SingleRollResult(
-                ast=node,
+                ast=modified_node,
                 roll=roll,
                 stringifier=stringifier,
                 crit=utils.determine_crit_type(roll, roll.find_from_ast(d20)),
@@ -145,7 +151,8 @@ class Roller:
         result = results[rolls.index(roll)]
 
         return RollResult(
-            ast=node,
+            ast=modified_node,
+            original_ast=node,
             roll=result,
             rolls=results,
             advantage=advantage,
