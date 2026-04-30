@@ -302,7 +302,7 @@ class Dice(Node):  # dice_expr
         self.operations = new_operations
 
     def _validate_operations(self):
-        """Validates if two the operations are valid."""
+        """Validates if the operations are valid."""
         # Only one adv or dis allowed per expression
         adv_count = 0
         for op in self.operations:
@@ -314,7 +314,7 @@ class Dice(Node):  # dice_expr
                         raise RollError(f"Selector for {op} must be a numeric value greater than zero.")
 
         if adv_count > 1:
-            raise RollError("Only one adv or dis allowed per dice expression.")
+            raise RollError("Only one adv or dis operator is allowed per dice expression.")
 
     def copy(self) -> Node:
         operations = [op.copy() for op in self.operations]
