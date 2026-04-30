@@ -98,6 +98,17 @@ Some operators are shorthands for other operators. These don't require selectors
 | ------ | ------------ | ------------------------------------------------------------- |
 | red    | RED critical | Equivalent to rs1raN where N is the maximum value of the dice |
 
+#### Advantage
+
+Two operators are supported to re-roll expressions and take specific results. These are `advantage` and `disadvantage`.
+
+| Syntax | Name         | Description                                          |
+| ------ | ------------ | ---------------------------------------------------- |
+| adv    | advantage    | Roll an expression twice and take the higher result. |
+| dis    | disadvantage | Roll an expression twice and take the lower result.  |
+
+An expression can only have one of these, and that operator can only be used. For example, `4d6advkh3` is a valid expression, but `4d6advdis` is not.
+
 #### Selectors
 
 Selectors select from the remaining kept values in a set.

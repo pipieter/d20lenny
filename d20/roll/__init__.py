@@ -2,13 +2,14 @@
 
 import dataclasses
 import random
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import Callable, Optional, Type
 
 from .expression import BinOp, Dice, Expression, Literal, Number, Parenthetical, RollContext, UnOp
 from .stringifier import SimpleStringifier, Stringifier
 from .. import diceast as ast, utils
 from ..enums import Advantage, Critical
+from ..errors import RollError
 from ..rand import random_impl
 
 
@@ -81,7 +82,7 @@ class Roller:
     _rng: random.Random
 
     def __init__(self, rng: random.Random = random_impl):
-        self._nodes: Mapping[Type[ast.Node], Callable[[ast.Node, RollContext], Number]] = {  # type: ignore
+        self._nodes: Mapping[Type[ast.Node], Callable[[ast.Node, RollContext], tuple[Number, Sequence[Number]]]] = {  # type: ignore
             ast.Expression: self._eval_expression,
             ast.Literal: self._eval_literal,
             ast.Parenthetical: self._eval_parenthetical,
@@ -102,6 +103,10 @@ class Roller:
         advantage: Advantage = Advantage.NONE,
     ) -> RollResult:
         """Rolls the dice."""
+
+        # It's possible for the node to be edited for advantage, so a copy is made
+        node = node.copy()
+
         if stringifier is None:
             stringifier = SimpleStringifier()
 
@@ -112,28 +117,23 @@ class Roller:
         first_roll = self._eval(node, context)
         rolls = [first_roll]
 
-        # Roll with advantage
+        # Add the advantage operator
         if advantage != Advantage.NONE:
             if d20 is None:
                 warnings.append(f"Rolled with {advantage.value}, but expression did not contain a valid d20.")
             else:
-                for _ in range(advantage.rolls - 1):
-                    next_roll = utils.copy_number_with_d20_rerolled(first_roll, d20)
-                    rolls.append(next_roll)
+                if not utils.add_adv_operator_to_dice(d20, advantage.adv, advantage.rolls):
+                    warnings.append(f"The d20 in the expression already had an advantage operator.")
 
-        result = utils.determine_final_roll(rolls, advantage)
-        die = utils.extract_dice(result)
+        # Roll the actual die
+        roll, rolls = self._eval(node, context)
 
+        # Add die warning
+        die = utils.extract_dice(roll)
         if len(die) == 0:
             warnings.append("Expression did not contain any dice.")
 
-        result = SingleRollResult(
-            ast=node,
-            roll=result,
-            stringifier=stringifier,
-            crit=utils.determine_crit_type(result, result.find_from_ast(d20)),
-        )
-        rolls = [
+        results = [
             SingleRollResult(
                 ast=node,
                 roll=roll,
@@ -142,35 +142,80 @@ class Roller:
             )
             for roll in rolls
         ]
+        result = results[rolls.index(roll)]
 
         return RollResult(
             ast=node,
             roll=result,
-            rolls=rolls,
+            rolls=results,
             advantage=advantage,
             stringifier=stringifier,
             warnings=warnings,
         )
 
     # evaluator
-    def _eval(self, node: ast.Node, context: RollContext) -> Number:
+    def _eval(self, node: ast.Node, context: RollContext) -> tuple[Number, Sequence[Number]]:
+        """Evaluate a node, returning a list of all possible rolls and the final roll of the expression."""
         handler = self._nodes[type(node)]
         return handler(node, context)
 
-    def _eval_expression(self, node: ast.Expression, context: RollContext) -> Expression:
-        return Expression(self._eval(node.roll, context), node)
+    def _eval_expression(self, node: ast.Expression, context: RollContext) -> tuple[Number, Sequence[Number]]:
+        value, values = self._eval(node.roll, context)
+        assert value in values
 
-    def _eval_literal(self, node: ast.Literal, context: RollContext) -> Literal:
-        return Literal(node.value, node)
+        expressions = [Expression(val, node) for val in values]
+        expression = expressions[values.index(value)]
 
-    def _eval_parenthetical(self, node: ast.Parenthetical, context: RollContext) -> Parenthetical:
-        return Parenthetical(self._eval(node.value, context), node)
+        return expression, expressions
 
-    def _eval_unop(self, node: ast.UnOp, context: RollContext) -> UnOp:
-        return UnOp(node.op, self._eval(node.value, context), node)
+    def _eval_literal(self, node: ast.Literal, context: RollContext) -> tuple[Number, Sequence[Number]]:
+        literal = Literal(node.value, node)
+        return literal, [literal]
 
-    def _eval_binop(self, node: ast.BinOp, context: RollContext) -> BinOp:
-        return BinOp(self._eval(node.left, context), node.op, self._eval(node.right, context), node)
+    def _eval_parenthetical(self, node: ast.Parenthetical, context: RollContext) -> tuple[Number, Sequence[Number]]:
+        value, values = self._eval(node.value, context)
+        assert value in values
 
-    def _eval_dice(self, node: ast.Dice, context: RollContext) -> Dice:
-        return Dice.new(node, context)
+        parentheticals = [Parenthetical(val, node) for val in values]
+        parenthetical = parentheticals[values.index(value)]
+
+        return parenthetical, parentheticals
+
+    def _eval_unop(self, node: ast.UnOp, context: RollContext) -> tuple[Number, Sequence[Number]]:
+        value, values = self._eval(node.value, context)
+        assert value in values
+
+        unops = [UnOp(node.op, val, node) for val in values]
+        unop = unops[values.index(value)]
+
+        return unop, unops
+
+    def _eval_binop(self, node: ast.BinOp, context: RollContext) -> tuple[Number, Sequence[Number]]:
+        left_value, left_values = self._eval(node.left, context)
+        right_value, right_values = self._eval(node.right, context)
+
+        assert left_value in left_values
+        assert right_value in right_values
+
+        binops: list[BinOp] = []
+
+        binop = None
+        for lval in left_values:
+            for rval in right_values:
+                value = BinOp(lval, node.op, rval, node)
+                binops.append(value)
+                if lval is left_value and rval is right_value:
+                    binop = value
+
+        # Should never occur if every other function is implemented correctly, but this is required for the linter
+        if binop is None:
+            raise RollError("Could not construct roller binop")
+
+        return binop, binops
+
+    def _eval_dice(self, node: ast.Dice, context: RollContext) -> tuple[Number, Sequence[Number]]:
+        value, values = Dice.new(node, context)
+
+        assert value in values
+
+        return value, values

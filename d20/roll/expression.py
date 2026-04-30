@@ -1,6 +1,7 @@
 import abc
 import math
 import random
+import typing
 from collections.abc import Callable, Mapping
 from typing import Sequence
 
@@ -98,9 +99,9 @@ class Expression(Number):
 
     value: Number
 
-    def __init__(self, roll: Number, ast: ast.Node) -> None:
+    def __init__(self, value: Number, ast: ast.Node) -> None:
         super().__init__(ast)
-        self.value = roll
+        self.value = value
 
     @property
     def total(self) -> int:
@@ -331,8 +332,7 @@ class Dice(Number):
         self.operators = operators
 
     @classmethod
-    def new(cls, ast: ast.Dice, context: RollContext) -> "Dice":
-        """Roll a new set of dice."""
+    def _new_single(cls, ast: ast.Dice, context: RollContext) -> "Dice":
         num = ast.num
         size = ast.size
         dice: list[Die] = []
@@ -344,9 +344,51 @@ class Dice(Number):
 
         result = cls(dice, num, size, operators, ast, context)
         for operator in operators:
+            # Skip adv and dis operators, this should be handled by Dice.new
+            if operator.op in ["adv", "dis"]:
+                continue
             operator.operate(result)
 
         return result
+
+    @classmethod
+    def new(cls, ast: ast.Dice, context: RollContext) -> tuple["Dice", list["Dice"]]:
+        """Roll a new set of dice."""
+        operators = [Operator.from_ast(op) for op in ast.operations]
+
+        adv: typing.Literal["adv", "dis", None] = None
+        roll_count = 1
+        for operator in operators:
+            if operator.op == "adv" or operator.op == "dis":
+                if adv is not None:
+                    raise ValueError(f"Encountered {operator.op} in expression, but expression already has {adv}.")
+                adv = operator.op
+
+                if len(operator.sels) == 0:
+                    roll_count = 2
+                elif len(operator.sels) != 1:
+                    raise ValueError(f"Operator {operator.op} expected one selector.")
+                else:
+                    if operator.sels[0].cat is not None:
+                        raise ValueError(f"Operator {operator.op} only works with literal numerics.")
+
+                    roll_count = operator.sels[0].num
+
+        if roll_count < 1:
+            raise ValueError(f"Operator {adv} expected at least one roll.")
+
+        rolls: list[Dice] = []
+        for _ in range(roll_count):
+            rolls.append(Dice._new_single(ast, context))
+
+        if adv is None:
+            roll = rolls[0]
+        elif adv == "adv":
+            roll = sorted(rolls, key=lambda r: r.total, reverse=True)[0]
+        elif adv == "dis":
+            roll = sorted(rolls, key=lambda r: r.total, reverse=False)[0]
+
+        return roll, rolls
 
     @property
     def keptset(self) -> Sequence[Die]:

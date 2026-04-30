@@ -8,7 +8,7 @@ import cachetools
 import lark
 from lark import Lark, Token, Transformer
 
-from d20.errors import RollSyntaxError
+from d20.errors import RollError, RollSyntaxError
 
 # ===== transformer, parser -> ast =====
 
@@ -53,12 +53,20 @@ class RollTransformer(Transformer[Any, Any]):
     def selector(self, sel: Any) -> "Selector":
         return Selector(*sel)
 
+    def num_selector(self, sel: Any) -> "Selector":
+        return Selector(None, *sel)
+
 
 # ===== ast classes =====
 
 
 class Node(abc.ABC):
     """The base class for all AST nodes."""
+
+    @abc.abstractmethod
+    def copy(self) -> "Node":
+        """Create a copy of the node."""
+        raise NotImplementedError
 
     @property
     @abc.abstractmethod
@@ -79,6 +87,9 @@ class Expression(Node):  # expr
 
     def __init__(self, roll: Node):
         self.roll = roll
+
+    def copy(self) -> Node:
+        return Expression(self.roll.copy())
 
     @property
     def children(self) -> Sequence[Node]:
@@ -103,6 +114,9 @@ class Literal(Node):  # literal
         else:
             self.value = value
 
+    def copy(self) -> Node:
+        return Literal(self.value)
+
     @property
     def children(self) -> Sequence[Node]:
         return []
@@ -122,6 +136,9 @@ class Parenthetical(Node):
         """
         super().__init__()
         self.value = value
+
+    def copy(self) -> Node:
+        return Parenthetical(self.value.copy())
 
     @property
     def children(self) -> Sequence[Node]:
@@ -145,6 +162,9 @@ class UnOp(Node):  # u_num
         super().__init__()
         self.op = str(op)
         self.value = value
+
+    def copy(self) -> Node:
+        return UnOp(self.op, self.value.copy())
 
     @property
     def children(self) -> Sequence[Node]:
@@ -171,6 +191,9 @@ class BinOp(Node):  # a_num, m_num
         self.op = str(op)
         self.left = left
         self.right = right
+
+    def copy(self) -> Node:
+        return BinOp(self.left.copy(), self.op, self.right.copy())
 
     @property
     def children(self) -> Sequence[Node]:
@@ -209,6 +232,10 @@ class Operator:  # set_op, dice_op
         """Add selectors to the operator."""
         self.sels.extend(sels)
 
+    def copy(self) -> "Operator":
+        sels = [sel.copy() for sel in self.sels]
+        return Operator(self.op, sels)
+
     def __str__(self):
         if len(self.sels) == 0:
             return self.op
@@ -229,6 +256,9 @@ class Selector:  # selector
         self.cat = str(cat) if cat is not None else None
         self.num = int(num)
 
+    def copy(self) -> "Selector":
+        return Selector(self.cat, self.num)
+
     def __str__(self):
         if self.cat:
             return f"{self.cat}{self.num}"
@@ -248,6 +278,7 @@ class Dice(Node):  # dice_expr
         else:
             self.size = int(size)
         self.operations = list(operations)
+        self._validate_operations()
         self._simplify_operations()
 
     @property
@@ -269,6 +300,25 @@ class Dice(Node):  # dice_expr
                     new_operations.append(operation)
 
         self.operations = new_operations
+
+    def _validate_operations(self):
+        """Validates if the operations are valid."""
+        # Only one adv or dis allowed per expression
+        adv_count = 0
+        for op in self.operations:
+            if op.op in ["adv", "dis"]:
+                adv_count += 1
+                # adv or dis selector must a numeric value greater than zero
+                for sel in op.sels:
+                    if sel.cat is not None or sel.num < 1:
+                        raise RollError(f"Selector for {op} must be a numeric value greater than zero.")
+
+        if adv_count > 1:
+            raise RollError("Only one adv or dis operator is allowed per dice expression.")
+
+    def copy(self) -> Node:
+        operations = [op.copy() for op in self.operations]
+        return Dice(self.num, self.size, *operations)
 
     def __str__(self):
         operations = "".join([str(op) for op in self.operations])
