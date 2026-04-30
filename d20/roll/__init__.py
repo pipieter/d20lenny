@@ -162,6 +162,7 @@ class Roller:
 
     # evaluator
     def _eval(self, node: ast.Node, context: RollContext) -> tuple[Number, Sequence[Number]]:
+        """Evaluate a node, returning a list of all possible rolls and the final roll of the expression."""
         handler = self._nodes[type(node)]
         return handler(node, context)
 
